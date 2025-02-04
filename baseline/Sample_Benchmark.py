@@ -19,73 +19,21 @@ This challenge is designed for participants with varying skill levels in
 data science and programming, offering a great opportunity to apply your
 knowledge and enhance your capabilities in the field.
 '''
-
-# Load in Dependencies
-# python3 -m pip install scikit-learn tqdm
-
-# Supress Warnings
-import warnings
-warnings.filterwarnings('ignore')
-
-# Visualization
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-# Data Science
-import numpy as np
-import pandas as pd
-
-# Multi-dimensional arrays and datasets
-import xarray as xr
-
-# Geospatial raster data handling
-import rioxarray as rxr
-
-# Geospatial data analysis
-import geopandas as gpd
-
-# Geospatial operations
-import rasterio
-from rasterio import windows  
-from rasterio import features  
-from rasterio import warp
-from rasterio.warp import transform_bounds 
-from rasterio.windows import from_bounds 
-from shapely.geometry import Point
-
-# Image Processing
-from PIL import Image
-
-# Coordinate transformations
-from pyproj import Proj, Transformer, CRS
-
-# Feature Engineering
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
-
-# Machine Learning
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import r2_score
-
-# Planetary Computer Tools
-import pystac_client
-import planetary_computer as pc
-from pystac.extensions.eo import EOExtension as eo
-
-# Others
-import os
-from tqdm import tqdm
+from utilities import *
 
 # Load the training data from csv file and display the first few rows to inspect the data
 ground_df = pd.read_csv("Training_data_uhi_index.csv")
-ground_df.head()
+display(ground_df.head())
 
 # ground_df['datetime'].value_counts()
-ground_df.groupby(['Longitude', 'Latitude']).agg({'datetime': 'nunique'}).sort_values('datetime', ascending=False)
+display(
+    ground_df.groupby(['Longitude', 'Latitude']).agg({'datetime': 'nunique'})
+    .sort_values('datetime', ascending=False)
+)
 # .reset_index(name='counts')
 
 # `lower_left` and `upper_right` variables of the "Sentinel2_GeoTIFF" notebook
-ground_df[['Longitude', 'Latitude']].describe()
+display(ground_df[['Longitude', 'Latitude']].describe())
 
 '''
 TIP 1:
@@ -105,48 +53,6 @@ cover or generate a median mosaic using several scenes within a time series.
 See the Sentinel-2 sample notebook for examples.
 '''
 
-# Downloading GeoTIFF Image
-# Reads and plots four bands (B04, B08, B06, B01) from the GeoTIFF file.
-
-# Open the GeoTIFF file
-tiff_path = "S2_sample.tiff"
-
-# Read the bands from the GeoTIFF file
-with rasterio.open(tiff_path) as src1:
-    band1 = src1.read(1)  # Band [B01]
-    band2 = src1.read(2)  # Band [B04]
-    band3 = src1.read(3)  # Band [B06]
-    band4 = src1.read(4)  # Band [B08]
-
-# Plot the bands in a 2x2 grid
-fig, axes = plt.subplots(2, 2, figsize=(10, 10))
-
-# Flatten the axes for easier indexing
-axes = axes.flatten()
-
-# Plot the first band (B01)
-im1 = axes[0].imshow(band1, cmap='viridis')
-axes[0].set_title('Band [B01]')
-fig.colorbar(im1, ax=axes[0])
-
-# Plot the second band (B04)
-im2 = axes[1].imshow(band2, cmap='viridis')
-axes[1].set_title('Band [B04]')
-fig.colorbar(im2, ax=axes[1])
-
-# Plot the third band (B06)
-im3 = axes[2].imshow(band3, cmap='viridis')                 
-axes[2].set_title('Band [B06]')
-fig.colorbar(im3, ax=axes[2])
-
-# Plot the fourth band (B08)
-im4 = axes[3].imshow(band4, cmap='viridis')
-axes[3].set_title('Band [B08]')
-fig.colorbar(im4, ax=axes[3])
-
-plt.tight_layout()
-plt.show()
-
 '''
 TIP 3:
 Instead of a single point data extraction, participants might explore the
@@ -160,7 +66,6 @@ data for each of the locations without creating a buffer zone.
 '''
 
 # Extracts satellite band values from a GeoTIFF based on coordinates from a csv file and returns them in a DataFrame.
-
 def map_satellite_data(tiff_path, csv_path_or_df):
     
     # Load the GeoTIFF data
@@ -224,35 +129,21 @@ try_data = map_satellite_data("S2_sample.tiff", ground_df.head(5).copy())
 
 # Mapping satellite data with training data.
 final_data = map_satellite_data('S2_sample.tiff', 'Training_data_uhi_index.csv')
-
-final_data.head()
+display(final_data.head())
 
 # Calculate NDVI (Normalized Difference Vegetation Index) and handle division by zero by replacing infinities with NaN.
 # See the Sentinel-2 sample notebook for more information about the NDVI index
 final_data['NDVI'] = (final_data['B08'] - final_data['B04']) / (final_data['B08'] + final_data['B04'])
 final_data['NDVI'] = final_data['NDVI'].replace([np.inf, -np.inf], np.nan) 
 
-# Joining the predictor variables and response variables
-
-# Combine two datasets vertically (along columns) using pandas concat function.
-def combine_two_datasets(dataset1,dataset2):
-    '''
-    Returns a  vertically concatenated dataset.
-    Attributes:
-    dataset1 - Dataset 1 to be combined 
-    dataset2 - Dataset 2 to be combined
-    '''
-    
-    data = pd.concat([dataset1, dataset2], axis=1)
-    return data
+# * Joining the predictor variables and response variables
 
 # Combining ground data and final data into a single dataset.
 uhi_data = combine_two_datasets(ground_df,final_data)
-uhi_data.head()
+display(uhi_data.head())
 
-# DataFrame to GeoDataFrame
-geo_df = gpd.GeoDataFrame(uhi_data, geometry=gpd.points_from_xy(uhi_data.Longitude, uhi_data.Latitude))
-geo_df.to_file("uhi_data.geojson", driver='GeoJSON')
+bbox_dataset = get_bbox_radius(uhi_data, [50, 100, 150])
+display(bbox_dataset.head())
 
 # Remove duplicate rows from the DataFrame based on specified columns and keep the first occurrence
 columns_to_check = ['B01', 'B04', 'B06', 'B08', 'NDVI']
@@ -263,7 +154,7 @@ for col in columns_to_check:
 
 # Now remove duplicates
 uhi_data = uhi_data.drop_duplicates(subset=columns_to_check, keep='first')
-uhi_data.head()
+display(uhi_data.head())
 
 # Resetting the index of the dataset
 uhi_data=  uhi_data.reset_index(drop=True)
@@ -302,14 +193,14 @@ insample_predictions = model.predict(X_train)
 
 # calculate R-squared score for in-sample predictions
 Y_train = y_train.tolist()
-r2_score(Y_train, insample_predictions)
+print(f"{r2_score(Y_train, insample_predictions)=}")
 
 # Make predictions on the test data
 outsample_predictions = model.predict(X_test)
 
 # calculate R-squared score for out-sample predictions
 Y_test = y_test.tolist()
-r2_score(Y_test, outsample_predictions)
+print(f"{r2_score(Y_test, outsample_predictions)=}")
 
 ''' SUBMISSION '''
 #Reading the coordinates for the submission
@@ -330,11 +221,11 @@ submission_val_data = val_data.loc[:,['B01','B06','NDVI']]
 submission_val_data = submission_val_data.values
 transformed_submission_data = sc.transform(submission_val_data)
 
-#Making predictions
+# Making predictions
 final_predictions = model.predict(transformed_submission_data)
 final_prediction_series = pd.Series(final_predictions)
 
-#Combining the results into dataframe
+# Combining the results into dataframe
 submission_df = pd.DataFrame({
     'Longitude': test_file['Longitude'].values, 
     'Latitude':test_file['Latitude'].values, 

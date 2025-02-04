@@ -312,3 +312,59 @@ plt.gca().xaxis.set_major_formatter(ticker.FormatStrFormatter('%.3f'))
 plt.gca().yaxis.set_major_formatter(ticker.FormatStrFormatter('%.3f'))
 plt.show()
 
+
+def get_bbox_radius(df, meters):
+    if isinstance(meters, int) or isinstance(meters, float):
+        meters = [meters]
+    elif not isinstance(meters, list):
+        raise ValueError("meters should be a list or a number")
+    
+    gdf = gpd.GeoDataFrame(
+        df[['longitude', 'latitude']], geometry=gpd.points_from_xy(df['longitude'], df['latitude']),
+        crs='EPSG:4326' # Latitude-Longitude -> https://spatialreference.org/ref/epsg/4326/
+    )
+    
+    gdf = gdf.to_crs(epsg=3395)
+    
+    transformer = Transformer.from_crs("EPSG:3395", "EPSG:4326", always_xy=True)
+    bbox_columns = []
+    for meter in meters:
+        gdf[f'buffer_{meters}m'] = gdf.apply(lambda x: buffer_meters(x, meters), axis=1)
+
+        # Calculate in EPSG:3395
+        gdf[f'buffer_{meters}m_bbox'] = gdf[f'buffer_{meters}m'].apply(lambda x: x.bounds)
+
+        # Transform to EPSG:4326
+        gdf[f'buffer_{meters}m_bbox_4326'] = gdf[f'buffer_{meters}m_bbox'].apply(lambda bbox: [
+            transformer.transform(bbox[0], bbox[1]),  # minx, miny
+            transformer.transform(bbox[2], bbox[3])   # maxx, maxy
+        ])
+
+        bbox_columns.append(f'buffer_{meters}m_bbox_4326')
+    
+    gdf = gdf.to_crs(epsg=4326)
+
+    return gdf[bbox_columns]
+
+
+def get_ndvi(data):
+    """
+    According to the nomenclature of Sentinel2_GeoTIFF.ipynb, the bands are:
+        dst.write(data_slice.B01,1)
+        dst.write(data_slice.B04,2)
+        dst.write(data_slice.B06,3) 
+        dst.write(data_slice.B08,4)
+    """
+    return (data.sel(band=4) - data.sel(band=2))/(data.sel(band=4) + data.sel(band=2))
+
+
+def get_vegetation_ratio(ndvi, threshold=0.4) -> float:
+    vegetation_pixels = np.sum(ndvi > threshold).item()
+    total_pixels = np.sum(~np.isnan(ndvi)).item()
+
+    return vegetation_pixels / total_pixels if total_pixels > 0 else 0
+
+ndvi_tiff = get_ndvi(selection)
+veg_ratio = get_vegetation_ratio(ndvi_tiff)
+
+ndvi_tiff.plot.imshow(vmin=-1.0, vmax=1.0, cmap="RdYlGn")
