@@ -77,6 +77,8 @@ display(final_data.head())
 final_data['NDVI'] = (final_data['B08'] - final_data['B04']) / (final_data['B08'] + final_data['B04'])
 final_data['NDVI'] = final_data['NDVI'].replace([np.inf, -np.inf], np.nan) 
 
+final_data['gNDBI'] = (final_data['B08'] - final_data['B03']) / (final_data['B08'] + final_data['B03'])
+final_data['gNDBI'] = final_data['gNDBI'].replace([np.inf, -np.inf], np.nan) 
 # * Joining the predictor variables and response variables
 
 # Combining ground data and final data into a single dataset.
@@ -112,7 +114,7 @@ display(bbox_dataset[buffer_radius_features].head())
 uhi_data = combine_two_datasets(uhi_data, bbox_dataset[buffer_radius_features])
 
 # Remove duplicate rows from the DataFrame based on specified columns and keep the first occurrence
-columns_to_check = ['B01', 'B04', 'B06', 'B08', 'NDVI'] + buffer_radius_features
+columns_to_check = ['B01','B06','NDVI','UHI Index', 'B02', 'B03', 'B04', 'B05', 'B07', 'B08', 'B8A', 'B11', 'B12', 'gNDBI'] + buffer_radius_features
 
 for col in columns_to_check:
     # Check if the value is a numpy array and has more than one dimension
@@ -127,7 +129,7 @@ uhi_data = uhi_data.reset_index(drop=True)
 ''' MODEL BUILDING '''
 
 # Retaining only the columns for B01, B06, NDVI, and UHI Index in the dataset.
-uhi_data = uhi_data[['B01','B06','NDVI','UHI Index'] + buffer_radius_features]
+uhi_data = uhi_data[['B01','B06','NDVI','UHI Index', 'B02', 'B03', 'B04', 'B05', 'B07', 'B08', 'B8A', 'B11', 'B12', 'gNDBI'] + buffer_radius_features]
 display(uhi_data.head())
 
 # Split the data into features (X) and target (y), and then into training and testing sets
