@@ -65,7 +65,7 @@ tqdm.pandas()
 
 
 # Combine two datasets vertically (along columns) using pandas concat function.
-def combine_two_datasets(dataset1,dataset2):
+def combine_two_datasets(dataset1, dataset2):
     '''
     Returns a  vertically concatenated dataset.
     Attributes:

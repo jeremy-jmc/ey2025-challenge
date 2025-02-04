@@ -19,21 +19,6 @@ This challenge is designed for participants with varying skill levels in
 data science and programming, offering a great opportunity to apply your
 knowledge and enhance your capabilities in the field.
 '''
-from utilities import *
-
-# Load the training data from csv file and display the first few rows to inspect the data
-ground_df = pd.read_csv("Training_data_uhi_index.csv")
-display(ground_df.head())
-
-# ground_df['datetime'].value_counts()
-display(
-    ground_df.groupby(['Longitude', 'Latitude']).agg({'datetime': 'nunique'})
-    .sort_values('datetime', ascending=False)
-)
-# .reset_index(name='counts')
-
-# `lower_left` and `upper_right` variables of the "Sentinel2_GeoTIFF" notebook
-display(ground_df[['Longitude', 'Latitude']].describe())
 
 '''
 TIP 1:
@@ -65,10 +50,42 @@ autocorrelation. In this demonstration notebook, we are extracting the band
 data for each of the locations without creating a buffer zone.
 '''
 
+'''
+TIP 4:
+There are many data preprocessing methods available, which might help to
+improve the model performance. Participants should explore various
+suitable preprocessing methods as well as different machine learning
+algorithms to build a robust model.
+'''
+
+from utilities import *
+
+SEED = 42
+TIFF_PATH = './S2_sample.tiff' # './S2_sample_5res.tiff'
+
+# Load the training data from csv file and display the first few rows to inspect the data
+ground_df = pd.read_csv("Training_data_uhi_index.csv")
+display(ground_df.head())
+
+# ground_df['datetime'].value_counts()
+display(
+    ground_df.groupby(['Longitude', 'Latitude']).agg({'datetime': 'nunique'})
+    .sort_values('datetime', ascending=False)
+)
+# .reset_index(name='counts')
+
+# `lower_left` and `upper_right` variables of the "Sentinel2_GeoTIFF" notebook
+display(ground_df[['Longitude', 'Latitude']].describe())
+
+
+# -----------------------------------------------------------------------------
+# Feature Engineering: Obtain features from Sentinel2 TIFF
+# -----------------------------------------------------------------------------
+
 # try_data = map_satellite_data("S2_sample.tiff", ground_df.head(5).copy())
 
 # Mapping satellite data with training data.
-final_data = map_satellite_data('S2_sample.tiff', 'Training_data_uhi_index.csv')
+final_data = map_satellite_data(TIFF_PATH, 'Training_data_uhi_index.csv')
 
 display(final_data.head())
 
@@ -79,18 +96,22 @@ final_data['NDVI'] = final_data['NDVI'].replace([np.inf, -np.inf], np.nan)
 
 final_data['gNDBI'] = (final_data['B08'] - final_data['B03']) / (final_data['B08'] + final_data['B03'])
 final_data['gNDBI'] = final_data['gNDBI'].replace([np.inf, -np.inf], np.nan) 
-# * Joining the predictor variables and response variables
 
+# * Joining the predictor variables and response variables
 # Combining ground data and final data into a single dataset.
 uhi_data = combine_two_datasets(ground_df,final_data)
 display(uhi_data.head())
+
+# -----------------------------------------------------------------------------
+# Feature Engineering: Generate buffers around the coordinates and extract features
+# -----------------------------------------------------------------------------
 
 radius_list = [50, 150, 100, 200, 250]
 bbox_dataset = get_bbox_radius(uhi_data, radius_list)
 
 for r in radius_list:
     bbox_dataset[f'buffer_{r}m_selection'] = bbox_dataset[f'buffer_{r}m_bbox_4326'].progress_apply(
-        lambda bbox: get_bbox_selection('S2_sample.tiff', bbox)
+        lambda bbox: get_bbox_selection(TIFF_PATH, bbox)
     )
 
 buffer_radius_features = []
@@ -113,6 +134,8 @@ display(bbox_dataset[buffer_radius_features].head())
 
 uhi_data = combine_two_datasets(uhi_data, bbox_dataset[buffer_radius_features])
 
+all_features = uhi_data.copy()
+
 # Remove duplicate rows from the DataFrame based on specified columns and keep the first occurrence
 columns_to_check = ['B01','B06','NDVI','UHI Index', 'B02', 'B03', 'B04', 'B05', 'B07', 'B08', 'B8A', 'B11', 'B12', 'gNDBI'] + buffer_radius_features
 
@@ -126,36 +149,33 @@ uhi_data = uhi_data.drop_duplicates(subset=columns_to_check, keep='first')
 # Resetting the index of the dataset
 uhi_data = uhi_data.reset_index(drop=True)
 
-''' MODEL BUILDING '''
+# -----------------------------------------------------------------------------
+# Model building and Data preparation/splitting
+# -----------------------------------------------------------------------------
 
 # Retaining only the columns for B01, B06, NDVI, and UHI Index in the dataset.
-uhi_data = uhi_data[['B01','B06','NDVI','UHI Index', 'B02', 'B03', 'B04', 'B05', 'B07', 'B08', 'B8A', 'B11', 'B12', 'gNDBI'] + buffer_radius_features]
+uhi_data = uhi_data[['B01', 'B06', 'B8A', 'NDVI', 'UHI Index'] + buffer_radius_features] # , 'B02', 'B03', 'B04', 'B05', 'B07', 'B08',  'B11', 'B12', 'gNDBI'
+# [b for b in buffer_radius_features if 'ndvi_buffer' not in b]
 display(uhi_data.head())
 
 # Split the data into features (X) and target (y), and then into training and testing sets
 X = uhi_data.drop(columns=['UHI Index']).values
 y = uhi_data ['UHI Index'].values
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=123)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=SEED)
 
 print(f"{X_train.shape}")
-
-'''
-TIP 4:
-There are many data preprocessing methods available, which might help to
-improve the model performance. Participants should explore various
-suitable preprocessing methods as well as different machine learning
-algorithms to build a robust model.
-'''
 
 # Scale the training and test data using standardscaler
 sc = StandardScaler()
 X_train = sc.fit_transform(X_train)
 X_test = sc.transform(X_test)
 
-''' MODEL TRAINING '''
+# -----------------------------------------------------------------------------
+# Model training
+# -----------------------------------------------------------------------------
 
 # * Train the Random Forest model on the training data
-model = RandomForestRegressor(n_estimators=100, random_state=42)
+model = RandomForestRegressor(n_estimators=100, random_state=SEED)
 model.fit(X_train,y_train)
 
 # * Make predictions on the training data
@@ -172,13 +192,16 @@ outsample_predictions = model.predict(X_test)
 Y_test = y_test.tolist()
 print(f"{r2_score(Y_test, outsample_predictions)=}")
 
-# K-Fold cross-validation
-kf = KFold(n_splits=5, shuffle=True, random_state=42)
-r2_scores = cross_val_score(model, X_train, y_train, cv=kf, scoring='r2')
+# * K-Fold cross-validation
+print()
+for fold in [3, 5]: # , 10
+    kf = KFold(n_splits=fold, shuffle=True, random_state=SEED)
+    r2_scores = cross_val_score(model, X_train, y_train, cv=kf, scoring='r2')
 
-print(f"R² Scores: {r2_scores}")
-print(f"Mean R² Score: {np.mean(r2_scores):.4f}")
-print(f"Standard Deviation of R² Scores: {np.std(r2_scores):.4f}")
+    print(f"{fold} - R² Scores: {r2_scores}")
+    print(f"{fold} - Mean R² Score: {np.mean(r2_scores):.4f}")
+    print(f"{fold} - Standard Deviation of R² Scores: {np.std(r2_scores):.4f}")
+    print()
 
 
 # -----------------------------------------------------------------------------
@@ -191,7 +214,7 @@ test_file = pd.read_csv('Submission_template.csv')
 test_file.head()
 
 # Mapping satellite data for submission.
-val_data = map_satellite_data('S2_sample.tiff', 'Submission_template.csv')
+val_data = map_satellite_data(TIFF_PATH, 'Submission_template.csv')
 
 # Calculate NDVI (Normalized Difference Vegetation Index) and handle division by zero by replacing infinities with NaN.
 val_data['NDVI'] = (val_data['B08'] - val_data['B04']) / (val_data['B08'] + val_data['B04'])
@@ -215,5 +238,5 @@ submission_df = pd.DataFrame({
     'UHI Index':final_prediction_series.values
 })
 
-#Dumping the predictions into a csv file.
+# Dumping the predictions into a csv file.
 submission_df.to_csv("submission.csv",index = False)
