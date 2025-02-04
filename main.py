@@ -1,5 +1,5 @@
 
-# !pip install geopy
+# !python3 -m pip install geopy
 
 import pandas as pd
 import geopandas as gpd
