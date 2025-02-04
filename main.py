@@ -11,13 +11,15 @@ from sklearn.metrics import silhouette_score
 from shapely.geometry import LineString
 import numpy as np
 import matplotlib.pyplot as plt
+import rioxarray as rxr
 from tqdm import tqdm
 from IPython.display import display
 from pyproj import Transformer
 import random
 import stackstac
-import pystac_client
+import pickle
 import planetary_computer 
+import pystac_client
 from odc.stac import stac_load
 
 tqdm.pandas()
@@ -37,6 +39,7 @@ SCALE = RESOLUTION / 111320.0 # degrees per pixel for crs=4326
 df = (
     pd.read_csv('./baseline/Training_data_uhi_index.csv')
     # .sort_values(by=['datetime'])
+    .reset_index()
 )
 df.columns = [col.replace(" ", '_') for col in df.columns.str.lower()]
 
@@ -159,6 +162,11 @@ display(gdf.head())
 # print(gdf[['buffer_150m_bbox_4326']])
 # print(gdf.iloc[0].to_dict())
 
+# -----------------------------------------------------------------------------
+# Setup a random point with all its features
+# -----------------------------------------------------------------------------
+
+random_sample = gdf.sample(1).iloc[0]
 
 # -----------------------------------------------------------------------------
 # Sentinel2 API request for a random point in the dataset
@@ -168,7 +176,7 @@ random_res = random.choice(buffer_radius)
 
 stac = pystac_client.Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
 
-random_buffer = gdf.sample(1).iloc[0][f'buffer_{random_res}m_bbox_4326']
+random_buffer = random_sample[f'buffer_{random_res}m_bbox_4326']
 
 # bounds = (min_lon, min_lat, max_lon, max_lat)
 random_bounds = (*random_buffer[0], *random_buffer[1])
@@ -181,11 +189,16 @@ search = stac.search(
 )
 
 items = list(search.items())
+# save items as pkl file
+with open('items.pkl', 'wb') as f:
+    pickle.dump(items, f)
 
 signed_items = [planetary_computer.sign(item).to_dict() for item in items]
 
+load_items_from_pkl = pickle.load(open('items.pkl', 'rb'))
+
 data = stac_load(
-    items,
+    load_items_from_pkl,   # items
     bands=["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B11", "B12"],
     crs="EPSG:4326", # Latitude-Longitude
     resolution=SCALE, # Degrees
@@ -217,10 +230,14 @@ plt.show()
 # Compute the median composite along the time-range and plot it
 median = data.median(dim="time").compute()
 
-fig, ax = plt.subplots(figsize=(6,6))
+print(f"{median[['B04', 'B03', 'B02']].to_array().shape=}")
+
+fig, ax = plt.subplots()    # figsize=(6,6)
 median[["B04", "B03", "B02"]].to_array().plot.imshow(robust=True, ax=ax, vmin=0, vmax=2500)
 ax.set_title("RGB Median Composite")
-ax.axis('off')
+plt.gca().xaxis.set_major_formatter(ticker.FormatStrFormatter('%.3f'))
+plt.gca().yaxis.set_major_formatter(ticker.FormatStrFormatter('%.3f'))
+# ax.axis('off')
 plt.show()
 
 
@@ -231,13 +248,23 @@ plt.show()
 # Calculate NDVI for the median mosaic
 ndvi_median = (median['B08'] - median['B04'])/(median['B08'] + median['B04'])
 
-fig, ax = plt.subplots(figsize=(7,6))
+fig, ax = plt.subplots()
 ndvi_median.plot.imshow(vmin=0.0, vmax=1.0, cmap="RdYlGn")
 plt.title("Median NDVI")
 plt.axis('off')
 plt.show()
 
-# Calculate the proportion of vegetation pixels
+
+"""
+        Spatial Composition & Distribution Features
+- Proportion of Land Cover Types (e.g., % of water, % of vegetation, % of built-up)
+- Patch Density & Shape Metrics (e.g., average size of vegetation patches)
+- Distance to Nearest Water Body or Urban Area
+- Road Density within the Buffer
+- Sky View Factor (SVF) Proxy: Estimate openness of the area, affecting heat dissipation.
+"""
+
+# % of vegetation pixels wrt total pixels
 veg_threshold = 0.4
 vegetation_pixels = np.sum(ndvi_median > veg_threshold).item()
 total_pixels = np.sum(~np.isnan(ndvi_median)).item()
@@ -247,6 +274,8 @@ veg_proportion = vegetation_pixels / total_pixels if total_pixels > 0 else 0
 print(f"{veg_proportion=}")
 print(f"{veg_proportion:.2%} of pixels have an NDVI greater than {veg_threshold}")
 
+# avg size of vegetation patches
+
 
 """
 TODO:
@@ -254,5 +283,32 @@ TODO:
         https://custom-scripts.sentinel-hub.com/custom-scripts/sentinel/sentinel-2/#remote-sensing-indices
 REFERENCES:
     https://custom-scripts.sentinel-hub.com/custom-scripts/sentinel-2/ndvi/
-
+IDEAS:
+    https://chatgpt.com/share/67a140fd-aba8-8001-ab3c-156e8cd6e336
 """
+
+# -----------------------------------------------------------------------------
+# Extract patch of a TIFF image
+# -----------------------------------------------------------------------------
+
+lower_left, upper_right = random_sample[f'buffer_{random_res}m_bbox_4326']
+
+data = rxr.open_rasterio('./baseline/S2_sample_5res.tiff')
+
+selection = data.sel(
+    x=slice(lower_left[0], upper_right[0]),
+    y=slice(upper_right[1], lower_left[1])
+)
+
+for b in [2, 5, 6]:
+    # print(f"{np.unique(np.array(selection.sel(band=[b])))=}")
+    print(np.any(np.array(selection.sel(band=[b])) != 0))
+
+rgb_selection = selection.sel(band=[2, 5, 6])   # (3, H, W) -> (H, W, 3)
+print(f"{rgb_selection.shape=}")
+
+rgb_selection.plot.imshow(robust=True, vmin=0, vmax=2500)  # 
+plt.gca().xaxis.set_major_formatter(ticker.FormatStrFormatter('%.3f'))
+plt.gca().yaxis.set_major_formatter(ticker.FormatStrFormatter('%.3f'))
+plt.show()
+
