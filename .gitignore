@@ -3,3 +3,6 @@ data/
 
 *.zip
 *.geojson
+*.pkl
+
+__pycache__/

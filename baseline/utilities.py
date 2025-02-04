@@ -42,7 +42,7 @@ from pyproj import Proj, Transformer, CRS
 
 # Feature Engineering
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, KFold, cross_val_score
 
 # Machine Learning
 from sklearn.ensemble import RandomForestRegressor
@@ -56,6 +56,8 @@ from pystac.extensions.eo import EOExtension as eo
 # Others
 import os
 from tqdm import tqdm
+
+tqdm.pandas()
 
 # -----------------------------------------------------------------------------
 # EY Functions
@@ -73,6 +75,68 @@ def combine_two_datasets(dataset1,dataset2):
     
     data = pd.concat([dataset1, dataset2], axis=1)
     return data
+
+
+# Extracts satellite band values from a GeoTIFF based on coordinates from a csv file and returns them in a DataFrame.
+def map_satellite_data(tiff_path, csv_path_or_df):
+    
+    # Load the GeoTIFF data
+    data = rxr.open_rasterio(tiff_path)
+    print(type(data))
+    tiff_crs = data.rio.crs
+
+    # Read the Excel file using pandas
+    if isinstance(csv_path_or_df, str):
+        df = pd.read_csv(csv_path_or_df)
+    elif isinstance(csv_path_or_df, pd.DataFrame):
+        df = csv_path_or_df.copy()
+    else:
+        raise ValueError("csv_path_or_df must be a file path or a DataFrame")
+    
+    latitudes = df['Latitude'].values
+    longitudes = df['Longitude'].values
+
+    # 3. Convert lat/long to the GeoTIFF's CRS
+    # Create a Proj object for EPSG:4326 (WGS84 - lat/long) and the GeoTIFF's CRS
+    proj_wgs84 = Proj(init='epsg:4326')  # EPSG:4326 is the common lat/long CRS
+    proj_tiff = Proj(tiff_crs)
+    
+    # Create a transformer object
+    transformer = Transformer.from_proj(proj_wgs84, proj_tiff)
+
+    B01_values = []
+    B04_values = []
+    B06_values = []
+    B08_values = []
+
+    # Iterate over the latitudes and longitudes, and extract the corresponding band values
+    for lat, lon in tqdm(zip(latitudes, longitudes), total=len(latitudes), desc="Mapping values"):
+    # Assuming the correct dimensions are 'y' and 'x' (replace these with actual names from data.coords)
+    
+        B01_value = data.sel(x=lon, y=lat,  band=1, method="nearest").values
+        B01_values.append(B01_value)
+    
+        B04_value = data.sel(x=lon, y=lat, band=2, method="nearest").values
+        B04_values.append(B04_value)
+        
+        B06_value = data.sel(x=lon, y=lat, band=3, method="nearest").values
+        B06_values.append(B06_value)
+    
+        B08_value = data.sel(x=lon, y=lat, band=4, method="nearest").values
+        B08_values.append(B08_value)
+
+        # print(f"{B01_value=}, {B04_value=}, {B06_value=}, {B08_value=}")
+
+    # Create a DataFrame with the band values
+    # Create a DataFrame to store the band values
+    df = pd.DataFrame()
+    df['B01'] = B01_values
+    df['B04'] = B04_values
+    df['B06'] = B06_values
+    df['B08'] = B08_values
+    
+    return df
+
 
 # -----------------------------------------------------------------------------
 # Functions
@@ -133,3 +197,15 @@ def get_vegetation_ratio(ndvi, threshold=0.4) -> float:
 
     return vegetation_pixels / total_pixels if total_pixels > 0 else 0
 
+
+def get_bbox_selection(tiff_path, bbox):
+    lower_left, upper_right = bbox
+
+    data = rxr.open_rasterio(tiff_path)
+
+    selection = data.sel(
+        x=slice(lower_left[0], upper_right[0]),
+        y=slice(upper_right[1], lower_left[1])
+    )
+
+    return selection

@@ -65,70 +65,11 @@ autocorrelation. In this demonstration notebook, we are extracting the band
 data for each of the locations without creating a buffer zone.
 '''
 
-# Extracts satellite band values from a GeoTIFF based on coordinates from a csv file and returns them in a DataFrame.
-def map_satellite_data(tiff_path, csv_path_or_df):
-    
-    # Load the GeoTIFF data
-    data = rxr.open_rasterio(tiff_path)
-    print(type(data))
-    tiff_crs = data.rio.crs
-
-    # Read the Excel file using pandas
-    if isinstance(csv_path_or_df, str):
-        df = pd.read_csv(csv_path_or_df)
-    elif isinstance(csv_path_or_df, pd.DataFrame):
-        df = csv_path_or_df.copy()
-    else:
-        raise ValueError("csv_path_or_df must be a file path or a DataFrame")
-    
-    latitudes = df['Latitude'].values
-    longitudes = df['Longitude'].values
-
-    # 3. Convert lat/long to the GeoTIFF's CRS
-    # Create a Proj object for EPSG:4326 (WGS84 - lat/long) and the GeoTIFF's CRS
-    proj_wgs84 = Proj(init='epsg:4326')  # EPSG:4326 is the common lat/long CRS
-    proj_tiff = Proj(tiff_crs)
-    
-    # Create a transformer object
-    transformer = Transformer.from_proj(proj_wgs84, proj_tiff)
-
-    B01_values = []
-    B04_values = []
-    B06_values = []
-    B08_values = []
-
-    # Iterate over the latitudes and longitudes, and extract the corresponding band values
-    for lat, lon in tqdm(zip(latitudes, longitudes), total=len(latitudes), desc="Mapping values"):
-    # Assuming the correct dimensions are 'y' and 'x' (replace these with actual names from data.coords)
-    
-        B01_value = data.sel(x=lon, y=lat,  band=1, method="nearest").values
-        B01_values.append(B01_value)
-    
-        B04_value = data.sel(x=lon, y=lat, band=2, method="nearest").values
-        B04_values.append(B04_value)
-        
-        B06_value = data.sel(x=lon, y=lat, band=3, method="nearest").values
-        B06_values.append(B06_value)
-    
-        B08_value = data.sel(x=lon, y=lat, band=4, method="nearest").values
-        B08_values.append(B08_value)
-
-        # print(f"{B01_value=}, {B04_value=}, {B06_value=}, {B08_value=}")
-
-    # Create a DataFrame with the band values
-    # Create a DataFrame to store the band values
-    df = pd.DataFrame()
-    df['B01'] = B01_values
-    df['B04'] = B04_values
-    df['B06'] = B06_values
-    df['B08'] = B08_values
-    
-    return df
-
-try_data = map_satellite_data("S2_sample.tiff", ground_df.head(5).copy())
+# try_data = map_satellite_data("S2_sample.tiff", ground_df.head(5).copy())
 
 # Mapping satellite data with training data.
 final_data = map_satellite_data('S2_sample.tiff', 'Training_data_uhi_index.csv')
+
 display(final_data.head())
 
 # Calculate NDVI (Normalized Difference Vegetation Index) and handle division by zero by replacing infinities with NaN.
@@ -142,11 +83,36 @@ final_data['NDVI'] = final_data['NDVI'].replace([np.inf, -np.inf], np.nan)
 uhi_data = combine_two_datasets(ground_df,final_data)
 display(uhi_data.head())
 
-bbox_dataset = get_bbox_radius(uhi_data, [50, 100, 150])
-display(bbox_dataset.head())
+radius_list = [50, 150] # , 100, 200, 250
+bbox_dataset = get_bbox_radius(uhi_data, radius_list)
+
+for r in radius_list:
+    bbox_dataset[f'buffer_{r}m_selection'] = bbox_dataset[f'buffer_{r}m_bbox_4326'].progress_apply(
+        lambda bbox: get_bbox_selection('S2_sample.tiff', bbox)
+    )
+
+buffer_radius_features = []
+for r in radius_list:
+    bbox_dataset[f'ndvi_buffer_{r}m'] = bbox_dataset[f'buffer_{r}m_selection'].progress_apply(
+        lambda bbox: get_ndvi(bbox)
+    )
+
+    bbox_dataset[f'ndvi_buffer_{r}m_mean'] = bbox_dataset[f'ndvi_buffer_{r}m'].progress_apply(
+        lambda ndvi: np.nanmean(ndvi)
+    )
+
+    bbox_dataset[f'vegetation_ratio_ndvi_{r}m'] = bbox_dataset[f'ndvi_buffer_{r}m'].progress_apply(
+        lambda ndvi: get_vegetation_ratio(ndvi)
+    )
+
+    buffer_radius_features.extend([f'ndvi_buffer_{r}m_mean', f'vegetation_ratio_ndvi_{r}m'])
+
+display(bbox_dataset[buffer_radius_features].head())
+
+uhi_data = combine_two_datasets(uhi_data, bbox_dataset[buffer_radius_features])
 
 # Remove duplicate rows from the DataFrame based on specified columns and keep the first occurrence
-columns_to_check = ['B01', 'B04', 'B06', 'B08', 'NDVI']
+columns_to_check = ['B01', 'B04', 'B06', 'B08', 'NDVI'] + buffer_radius_features
 
 for col in columns_to_check:
     # Check if the value is a numpy array and has more than one dimension
@@ -154,20 +120,22 @@ for col in columns_to_check:
 
 # Now remove duplicates
 uhi_data = uhi_data.drop_duplicates(subset=columns_to_check, keep='first')
-display(uhi_data.head())
 
 # Resetting the index of the dataset
-uhi_data=  uhi_data.reset_index(drop=True)
+uhi_data = uhi_data.reset_index(drop=True)
 
 ''' MODEL BUILDING '''
 
 # Retaining only the columns for B01, B06, NDVI, and UHI Index in the dataset.
-uhi_data = uhi_data[['B01','B06','NDVI','UHI Index']]
+uhi_data = uhi_data[['B01','B06','NDVI','UHI Index'] + buffer_radius_features]
+display(uhi_data.head())
 
 # Split the data into features (X) and target (y), and then into training and testing sets
 X = uhi_data.drop(columns=['UHI Index']).values
 y = uhi_data ['UHI Index'].values
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=123)
+
+print(f"{X_train.shape}")
 
 '''
 TIP 4:
@@ -184,23 +152,36 @@ X_test = sc.transform(X_test)
 
 ''' MODEL TRAINING '''
 
-# Train the Random Forest model on the training data
+# * Train the Random Forest model on the training data
 model = RandomForestRegressor(n_estimators=100, random_state=42)
 model.fit(X_train,y_train)
 
-# Make predictions on the training data
+# * Make predictions on the training data
 insample_predictions = model.predict(X_train)
 
-# calculate R-squared score for in-sample predictions
+# Calculate R-squared score for in-sample predictions
 Y_train = y_train.tolist()
 print(f"{r2_score(Y_train, insample_predictions)=}")
 
-# Make predictions on the test data
+# * Make predictions on the test data
 outsample_predictions = model.predict(X_test)
 
-# calculate R-squared score for out-sample predictions
+# Calculate R-squared score for out-sample predictions
 Y_test = y_test.tolist()
 print(f"{r2_score(Y_test, outsample_predictions)=}")
+
+# K-Fold cross-validation
+kf = KFold(n_splits=5, shuffle=True, random_state=42)
+r2_scores = cross_val_score(model, X_train, y_train, cv=kf, scoring='r2')
+
+print(f"R² Scores: {r2_scores}")
+print(f"Mean R² Score: {np.mean(r2_scores):.4f}")
+print(f"Standard Deviation of R² Scores: {np.std(r2_scores):.4f}")
+
+
+# -----------------------------------------------------------------------------
+# ! No editar hasta tener un buen modelo. Editar de aca hacia arriba
+# -----------------------------------------------------------------------------
 
 ''' SUBMISSION '''
 #Reading the coordinates for the submission
@@ -234,11 +215,3 @@ submission_df = pd.DataFrame({
 
 #Dumping the predictions into a csv file.
 submission_df.to_csv("submission.csv",index = False)
-
-# K-Fold cross-validation
-kf = KFold(n_splits=5, shuffle=True, random_state=42)
-r2_scores = cross_val_score(model, X_train, y_train, cv=kf, scoring='r2')
-
-# print(f"R² Scores: {r2_scores}")
-print(f"Mean R² Score: {np.mean(r2_scores):.4f}")
-# print(f"Standard Deviation of R² Scores: {np.std(r2_scores):.4f}")
