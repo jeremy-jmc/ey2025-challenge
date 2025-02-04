@@ -83,7 +83,7 @@ final_data['NDVI'] = final_data['NDVI'].replace([np.inf, -np.inf], np.nan)
 uhi_data = combine_two_datasets(ground_df,final_data)
 display(uhi_data.head())
 
-radius_list = [50, 150] # , 100, 200, 250
+radius_list = [50, 150, 100, 200, 250]
 bbox_dataset = get_bbox_radius(uhi_data, radius_list)
 
 for r in radius_list:
