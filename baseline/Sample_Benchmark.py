@@ -343,3 +343,11 @@ submission_df = pd.DataFrame({
 
 #Dumping the predictions into a csv file.
 submission_df.to_csv("submission.csv",index = False)
+
+# K-Fold cross-validation
+kf = KFold(n_splits=5, shuffle=True, random_state=42)
+r2_scores = cross_val_score(model, X_train, y_train, cv=kf, scoring='r2')
+
+# print(f"R² Scores: {r2_scores}")
+print(f"Mean R² Score: {np.mean(r2_scores):.4f}")
+# print(f"Standard Deviation of R² Scores: {np.std(r2_scores):.4f}")
