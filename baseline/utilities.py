@@ -108,6 +108,13 @@ def map_satellite_data(tiff_path, csv_path_or_df):
     B04_values = []
     B06_values = []
     B08_values = []
+    B02_values = []
+    B03_values = []
+    B05_values = []
+    B07_values = []
+    B8A_values = []
+    B11_values = []
+    B12_values = []
 
     # Iterate over the latitudes and longitudes, and extract the corresponding band values
     for lat, lon in tqdm(zip(latitudes, longitudes), total=len(latitudes), desc="Mapping values"):
@@ -124,6 +131,27 @@ def map_satellite_data(tiff_path, csv_path_or_df):
     
         B08_value = data.sel(x=lon, y=lat, band=4, method="nearest").values
         B08_values.append(B08_value)
+        
+        B02_value = data.sel(x=lon, y=lat,  band=5, method="nearest").values
+        B02_values.append(B02_value)
+    
+        B03_value = data.sel(x=lon, y=lat, band=6, method="nearest").values
+        B03_values.append(B03_value)
+        
+        B05_value = data.sel(x=lon, y=lat, band=7, method="nearest").values
+        B05_values.append(B05_value)
+    
+        B07_value = data.sel(x=lon, y=lat, band=8, method="nearest").values
+        B07_values.append(B07_value)
+        
+        B8A_value = data.sel(x=lon, y=lat,  band=9, method="nearest").values
+        B8A_values.append(B8A_value)
+    
+        B11_value = data.sel(x=lon, y=lat, band=10, method="nearest").values
+        B11_values.append(B11_value)
+        
+        B12_value = data.sel(x=lon, y=lat, band=11, method="nearest").values
+        B12_values.append(B12_value)
 
         # print(f"{B01_value=}, {B04_value=}, {B06_value=}, {B08_value=}")
 
@@ -134,6 +162,13 @@ def map_satellite_data(tiff_path, csv_path_or_df):
     df['B04'] = B04_values
     df['B06'] = B06_values
     df['B08'] = B08_values
+    df['B02'] = B02_values
+    df['B03'] = B03_values
+    df['B05'] = B05_values
+    df['B07'] = B07_values
+    df['B8A'] = B8A_values
+    df['B11'] = B11_values
+    df['B12'] = B12_values
     
     return df
 
