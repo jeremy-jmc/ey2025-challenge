@@ -56,9 +56,12 @@ from pystac.extensions.eo import EOExtension as eo
 
 # Others
 import os
+import json
 from tqdm import tqdm
 
 tqdm.pandas()
+
+SEED = 42
 
 # -----------------------------------------------------------------------------
 # EY Functions
