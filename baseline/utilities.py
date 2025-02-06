@@ -41,7 +41,7 @@ from PIL import Image
 from pyproj import Proj, Transformer, CRS
 
 # Feature Engineering
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.model_selection import train_test_split, KFold, cross_val_score
 
 # Machine Learning
@@ -82,7 +82,7 @@ def combine_two_datasets(dataset1, dataset2):
 
 
 # Extracts satellite band values from a GeoTIFF based on coordinates from a csv file and returns them in a DataFrame.
-def map_satellite_data(tiff_path, csv_path_or_df):
+def map_satellite_data(tiff_path: str, csv_path_or_df) -> pd.DataFrame:
     
     # Load the GeoTIFF data
     data = rxr.open_rasterio(tiff_path)
@@ -185,7 +185,7 @@ def buffer_meters(row, meters):
     return row['geometry'].buffer(meters)
 
 
-def get_bbox_radius(df, meters):
+def compute_geographic_bounding_boxes(df, meters):
     if isinstance(meters, int) or isinstance(meters, float):
         meters = [meters]
     elif not isinstance(meters, list):

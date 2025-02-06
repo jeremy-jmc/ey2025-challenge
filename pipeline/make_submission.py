@@ -3,11 +3,18 @@
 # -----------------------------------------------------------------------------
 # ! No editar hasta tener un buen modelo. Editar de aca hacia arriba
 # -----------------------------------------------------------------------------
+import sys
+sys.path.append('..')
+
+from baseline.utilities import *
 
 ''' SUBMISSION '''
 #Reading the coordinates for the submission
-test_file = pd.read_csv('Submission_template.csv')
-test_file.head()
+test_file = pd.read_csv('../baseline/Submission_template.csv')
+print(test_file.shape)
+
+display(test_file.head())
+
 
 # Mapping satellite data for submission.
 val_data = map_satellite_data(TIFF_PATH, 'Submission_template.csv')

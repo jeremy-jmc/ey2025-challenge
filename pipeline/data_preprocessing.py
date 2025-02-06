@@ -57,13 +57,21 @@ improve the model performance. Participants should explore various
 suitable preprocessing methods as well as different machine learning
 algorithms to build a robust model.
 '''
+# !pip install pyarrow fastparquet pandarallel
+
 import sys
 sys.path.append('..')
 
 from baseline.utilities import *
+
+from pandarallel import pandarallel
+
+pandarallel.initialize(progress_bar=True)
+
 # from utilities import *
 
-TIFF_PATH = '../baseline/S2_sample.tiff' # './S2_sample_5res.tiff'
+SENTINEL_TIFF_PATH = '../baseline/S2_sample.tiff' # './S2_sample_5res.tiff'
+LANDSAT_TIFF_PATH = '../baseline/Landsat_LST.tiff'
 
 # Load the training data from csv file and display the first few rows to inspect the data
 ground_df = pd.read_csv("../baseline/Training_data_uhi_index.csv")
@@ -87,7 +95,7 @@ display(ground_df[['Longitude', 'Latitude']].describe())
 # try_data = map_satellite_data("S2_sample.tiff", ground_df.head(5).copy())
 
 # Mapping satellite data with training data.
-satellite_bands_df = map_satellite_data(TIFF_PATH, ground_df)
+satellite_bands_df = map_satellite_data(SENTINEL_TIFF_PATH, ground_df)
 
 display(satellite_bands_df.head())
 
@@ -101,18 +109,71 @@ satellite_bands_df['gNDBI'] = satellite_bands_df['gNDBI'].replace([np.inf, -np.i
 
 
 # -----------------------------------------------------------------------------
-# Feature Engineering: Generate buffers around the coordinates and extract features
+# Data Preprocessing: Generate geographic bounding boxes around the coordinates
 # -----------------------------------------------------------------------------
 
 radius_list = [50, 150, 100, 200, 250]
-bbox_dataset = get_bbox_radius(ground_df[['Longitude', 'Latitude']], radius_list)
+bbox_dataset = compute_geographic_bounding_boxes(ground_df[['Longitude', 'Latitude']], radius_list)
+print(bbox_dataset.columns)
 
+# -----------------------------------------------------------------------------
+# Feature Engineering: Extract features from the bounding boxes extracted above using Landsat TIFF
+# -----------------------------------------------------------------------------
+
+landsat_features_df = bbox_dataset.copy()
+
+sample = landsat_features_df['buffer_50m_bbox_4326'].iloc[0]
+selection = get_bbox_selection(LANDSAT_TIFF_PATH, sample)
+lwir11_arr = selection.sel(band=1).to_numpy()
+print(f"{lwir11_arr.shape=}")
+
+fig, ax = plt.subplots(figsize=(11,10))
+selection.sel(band=1).plot.imshow(vmin=20.0, vmax=45.0, cmap="jet")
+plt.title("Land Surface Temperature (LST)")
+plt.axis('off')
+plt.show()
+
+print(np.nanmean(lwir11_arr), np.nanstd(lwir11_arr))
+print(np.nanmean(selection.sel(band=1)), np.nanstd(selection.sel(band=1)))
+
+landsat_feature_list = []
 for r in radius_list:
-    bbox_dataset[f'buffer_{r}m_selection'] = bbox_dataset[f'buffer_{r}m_bbox_4326'].progress_apply(
-        lambda bbox: get_bbox_selection(TIFF_PATH, bbox)
+    print(f"Processing {r}m radius")
+
+    landsat_features_df[f'ldnst_buffer_{r}m_selection'] = landsat_features_df[f'buffer_{r}m_bbox_4326'].parallel_apply(
+        lambda bbox: get_bbox_selection(LANDSAT_TIFF_PATH, bbox)
     )
 
-buffer_radius_features = []
+    landsat_features_df[f'lndst_mean_lwir11_{r}m'] = landsat_features_df[f'ldnst_buffer_{r}m_selection'].parallel_apply(
+        lambda patch: np.nanmean(patch.sel(band=1))
+    )
+
+    landsat_features_df[f'lndst_std_lwir11_{r}m'] = landsat_features_df[f'ldnst_buffer_{r}m_selection'].parallel_apply(
+        lambda patch: np.nanstd(patch.sel(band=1))
+    )
+    
+    landsat_feature_list.extend([f'lndst_mean_lwir11_{r}m', f'lndst_std_lwir11_{r}m'])
+
+
+landsat_data = rxr.open_rasterio(LANDSAT_TIFF_PATH)
+
+landsat_features_df['lwir_point'] = ground_df[['Latitude', 'Longitude']].progress_apply(
+    lambda x: landsat_data.sel(x=x['Longitude'], y=x['Latitude'], method='nearest').values[0],
+    axis=1
+)
+
+# -----------------------------------------------------------------------------
+# Feature Engineering: Extract features from the bounding boxes extracted above using Sentinel 2 TIFF
+# -----------------------------------------------------------------------------
+
+sentinel_features_df = bbox_dataset.copy()
+
+for r in radius_list:
+    sentinel_features_df[f'sntnl_buffer_{r}m_selection'] = sentinel_features_df[f'buffer_{r}m_bbox_4326'].parallel_apply(
+        lambda bbox: get_bbox_selection(SENTINEL_TIFF_PATH, bbox)
+    )
+
+sentinel_focal_radius_ft = []
 for r in radius_list:
     """
     According to the nomenclature of Sentinel2_GeoTIFF.ipynb, the bands are:
@@ -121,22 +182,24 @@ for r in radius_list:
         dst.write(data_slice.B06, 3) 
         dst.write(data_slice.B08, 4)
     """
-    bbox_dataset[f'ndvi_buffer_{r}m'] = bbox_dataset[f'buffer_{r}m_selection'].progress_apply(
-        lambda bbox: (bbox.sel(band=4) - bbox.sel(band=2))/(bbox.sel(band=4) + bbox.sel(band=2))
+    print(f"Processing {r}m radius")
+    sentinel_features_df[f'sntnl_ndvi_{r}m'] = sentinel_features_df[f'sntnl_buffer_{r}m_selection'].parallel_apply(
+        lambda patch: (patch.sel(band=4) - patch.sel(band=2))/(patch.sel(band=4) + patch.sel(band=2))
         # get_ndvi(bbox)
     )
 
-    bbox_dataset[f'ndvi_buffer_{r}m_mean'] = bbox_dataset[f'ndvi_buffer_{r}m'].progress_apply(
+    sentinel_features_df[f'sntnl_mean_ndvi_{r}m'] = sentinel_features_df[f'sntnl_ndvi_{r}m'].parallel_apply(
         lambda ndvi: np.nanmean(ndvi)
     )
 
-    bbox_dataset[f'vegetation_ratio_ndvi_{r}m'] = bbox_dataset[f'ndvi_buffer_{r}m'].progress_apply(
+    sentinel_features_df[f'sntnl_vegetation_ratio_ndvi_{r}m'] = sentinel_features_df[f'sntnl_ndvi_{r}m'].parallel_apply(
         lambda ndvi: get_vegetation_ratio(ndvi)
     )
 
-    buffer_radius_features.extend([f'ndvi_buffer_{r}m_mean', f'vegetation_ratio_ndvi_{r}m'])
+    sentinel_focal_radius_ft.extend([f'sntnl_mean_ndvi_{r}m', f'sntnl_vegetation_ratio_ndvi_{r}m'])
+    print()
 
-display(bbox_dataset[buffer_radius_features].head())
+display(sentinel_features_df[sentinel_focal_radius_ft].head())
 
 
 # -----------------------------------------------------------------------------
@@ -145,12 +208,13 @@ display(bbox_dataset[buffer_radius_features].head())
 
 # Combining ground data, focal radius data and satellite bands data into a single dataset.
 uhi_data = combine_two_datasets(ground_df,satellite_bands_df)
-uhi_data = combine_two_datasets(uhi_data, bbox_dataset[buffer_radius_features])
+uhi_data = combine_two_datasets(uhi_data, sentinel_features_df[sentinel_focal_radius_ft])
+uhi_data = combine_two_datasets(uhi_data, landsat_features_df[landsat_feature_list])
 
 all_features = uhi_data.copy()
 
 # Remove duplicate rows from the DataFrame based on specified columns and keep the first occurrence
-columns_to_check = ['B01','B06','NDVI','UHI Index', 'B02', 'B03', 'B04', 'B05', 'B07', 'B08', 'B8A', 'B11', 'B12', 'gNDBI'] + buffer_radius_features
+columns_to_check = ['B01','B06','NDVI','UHI Index', 'B02', 'B03', 'B04', 'B05', 'B07', 'B08', 'B8A', 'B11', 'B12', 'gNDBI']
 
 for col in columns_to_check:
     # Check if the value is a numpy array and has more than one dimension
@@ -163,11 +227,16 @@ uhi_data = uhi_data.drop_duplicates(subset=columns_to_check, keep='first')
 uhi_data = uhi_data.reset_index(drop=True)
 
 # Saving the dataset to a parquet file
-# !pip install pyarrow fastparquet
 uhi_data.to_parquet('./data/train_data.parquet')
 
 # Saving the extracted column names into a JSON file
 with open('./data/columns.json', 'w') as f:
     json.dump({
-        'focal_radius_features': buffer_radius_features,
+        'focal_radius_features': sentinel_focal_radius_ft + landsat_feature_list,
     }, f)
+
+
+"""
+INSIGHT:
+    The mean and the std on each focal buffer using the B01 extracted from Sentinel2 TIFF improves the model
+"""

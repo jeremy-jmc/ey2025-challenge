@@ -10,18 +10,20 @@ buffer_radius_features = column_dict['focal_radius_features']
 
 # Retaining only the columns for B01, B06, NDVI, and UHI Index in the dataset.
 uhi_data = train_data[['B01', 'B06', 'B8A', 'NDVI', 'UHI Index'] + buffer_radius_features] # , 'B02', 'B03', 'B04', 'B05', 'B07', 'B08',  'B11', 'B12', 'gNDBI'
+print(uhi_data.isna().sum())
 display(uhi_data.head())
+
 
 # Split the data into features (X) and target (y), and then into training and testing sets
 X = uhi_data.drop(columns=['UHI Index']).values
 y = uhi_data ['UHI Index'].values
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=SEED)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=SEED)
 
 print(f"{X_train.shape}")
 
 # TODO: @ValDLaw23 check if the scaling affects the training
 # Scale the training and test data using standardscaler
-sc = StandardScaler()
+sc = StandardScaler() # MinMaxScaler()
 X_train = sc.fit_transform(X_train)
 X_test = sc.transform(X_test)
 
@@ -56,7 +58,7 @@ print(f"{r2_score(Y_test, outsample_predictions)=}")
 
 # * K-Fold cross-validation
 print()
-for fold in [3, 5]: # , 10
+for fold in [3, 5, 10]:
     kf = KFold(n_splits=fold, shuffle=True, random_state=SEED)
     r2_scores = cross_val_score(model, X_train, y_train, cv=kf, scoring='r2')
 
