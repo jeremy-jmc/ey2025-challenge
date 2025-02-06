@@ -116,8 +116,16 @@ for r in radius_list:
 
 buffer_radius_features = []
 for r in radius_list:
+    """
+    According to the nomenclature of Sentinel2_GeoTIFF.ipynb, the bands are:
+        dst.write(data_slice.B01, 1)
+        dst.write(data_slice.B04, 2)
+        dst.write(data_slice.B06, 3) 
+        dst.write(data_slice.B08, 4)
+    """
     bbox_dataset[f'ndvi_buffer_{r}m'] = bbox_dataset[f'buffer_{r}m_selection'].progress_apply(
-        lambda bbox: get_ndvi(bbox)
+        lambda bbox: (bbox.sel(band=4) - bbox.sel(band=2))/(bbox.sel(band=4) + bbox.sel(band=2))
+        # get_ndvi(bbox)
     )
 
     bbox_dataset[f'ndvi_buffer_{r}m_mean'] = bbox_dataset[f'ndvi_buffer_{r}m'].progress_apply(
@@ -176,7 +184,8 @@ X_test = sc.transform(X_test)
 
 # * Train the Random Forest model on the training data
 model = RandomForestRegressor(n_estimators=100, random_state=SEED)
-model.fit(X_train,y_train)
+# model = lgb.LGBMRegressor(n_estimators=100, boosting_type='rf', random_state=SEED, bagging_freq=1, bagging_fraction=0.8)
+model.fit(X_train, y_train)
 
 # * Make predictions on the training data
 insample_predictions = model.predict(X_train)
