@@ -107,7 +107,7 @@ display(uhi_data.head())
 # -----------------------------------------------------------------------------
 
 radius_list = [50, 150, 100, 200, 250]
-bbox_dataset = get_bbox_radius(uhi_data, radius_list)
+bbox_dataset = compute_geographic_bounding_boxes(uhi_data, radius_list)
 
 for r in radius_list:
     bbox_dataset[f'buffer_{r}m_selection'] = bbox_dataset[f'buffer_{r}m_bbox_4326'].progress_apply(
