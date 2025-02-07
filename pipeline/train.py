@@ -21,7 +21,7 @@ X = uhi_data.drop(columns=['UHI Index'])
 y = uhi_data ['UHI Index'].values
 
 # Apply RFECV
-rfecv = RFECV(estimator=DecisionTreeRegressor(), cv=KFold(n_splits=5, shuffle=True, random_state=42), scoring='r2', n_jobs=-1)
+rfecv = RFECV(estimator=DecisionTreeRegressor(random_state=SEED), cv=KFold(n_splits=5, shuffle=True, random_state=42), scoring='r2', n_jobs=-1)
 X_selected = rfecv.fit_transform(X, y)
 
 # Print selected features
