@@ -14,7 +14,7 @@ print(f"{buffer_radius_features=}")
 # -----------------------------------------------------------------------------
 
 # Retaining only the columns for B01, B06, NDVI, and UHI Index in the dataset.
-uhi_data = train_data[['B01', 'B06', 'B8A', 'NDVI', 'UHI Index'] + buffer_radius_features] # , 'B02', 'B03', 'B04', 'B05', 'B07', 'B08',  'B11', 'B12', 'gNDBI'
+uhi_data = train_data[['B01', 'B06', 'B8A', 'NDVI', 'UHI Index', 'B02', 'B03', 'B04', 'B05', 'B07', 'B08',  'B11', 'B12', 'gNDBI'] + buffer_radius_features]
 # print(uhi_data.isna().sum())
 # display(uhi_data.head())
 
