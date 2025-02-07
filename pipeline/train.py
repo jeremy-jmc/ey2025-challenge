@@ -28,6 +28,12 @@ X_selected = rfecv.fit_transform(X, y)
 # Print selected features
 selected_features = X.columns[rfecv.support_]
 print(f"Selected features: {list(selected_features)}")
+with open("selected_features.json", "w") as f:
+    f.write(json.dumps({
+        "selected_features" : list(selected_features)
+    }))
+
+print(f"Selected features: {list(selected_features)}")
 
 # -----------------------------------------------------------------------------
 # Train/Test Split
