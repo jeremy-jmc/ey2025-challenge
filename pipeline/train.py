@@ -49,6 +49,11 @@ X_test = sc.transform(X_test)
 X_train = X_train[:, rfecv.support_]
 X_test = X_test[:, rfecv.support_]
 
+# * Save the scaler
+scaler_path = './models/scaler.pkl'
+with open(scaler_path, 'wb') as scaler_file:
+    pickle.dump(sc, scaler_file)
+
 # -----------------------------------------------------------------------------
 # Model training
 # -----------------------------------------------------------------------------
