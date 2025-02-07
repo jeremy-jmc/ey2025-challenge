@@ -9,13 +9,30 @@ column_dict = json.loads(open('./data/columns.json').read())
 buffer_radius_features = column_dict['focal_radius_features']
 print(f"{buffer_radius_features=}")
 
+# -----------------------------------------------------------------------------
+# Feature selection
+# -----------------------------------------------------------------------------
+
 # Retaining only the columns for B01, B06, NDVI, and UHI Index in the dataset.
 uhi_data = train_data[['B01', 'B06', 'B8A', 'NDVI', 'UHI Index'] + buffer_radius_features] # , 'B02', 'B03', 'B04', 'B05', 'B07', 'B08',  'B11', 'B12', 'gNDBI'
-print(uhi_data.isna().sum())
-display(uhi_data.head())
+# print(uhi_data.isna().sum())
+# display(uhi_data.head())
 
+X = uhi_data.drop(columns=['UHI Index'])
+y = uhi_data ['UHI Index'].values
 
-# Split the data into features (X) and target (y), and then into training and testing sets
+# Apply RFECV
+rfecv = RFECV(estimator=DecisionTreeRegressor(random_state=SEED), cv=KFold(n_splits=5, shuffle=True, random_state=42), scoring='r2', n_jobs=-1)
+X_selected = rfecv.fit_transform(X, y)
+
+# Print selected features
+selected_features = X.columns[rfecv.support_]
+print(f"Selected features: {list(selected_features)}")
+
+# -----------------------------------------------------------------------------
+# Train/Test Split
+# -----------------------------------------------------------------------------
+
 X = uhi_data.drop(columns=['UHI Index']).values
 y = uhi_data ['UHI Index'].values
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=SEED)
@@ -28,11 +45,9 @@ sc = StandardScaler() # MinMaxScaler()
 X_train = sc.fit_transform(X_train)
 X_test = sc.transform(X_test)
 
-# -----------------------------------------------------------------------------
-# Feature selection
-# -----------------------------------------------------------------------------
-
-# TODO: ValDLaw23 implement automatic RFE feature selection algorithm
+# Use selected features
+X_train = X_train[:, rfecv.support_]
+X_test = X_test[:, rfecv.support_]
 
 # -----------------------------------------------------------------------------
 # Model training
@@ -78,3 +93,5 @@ for fold in [3, 5, 10]:
 
 # TODO: Research how to plot FE using the data proportined by the model and then, with SHAP Python library
 
+    
+# !python3.10 -m pip install pyarrow fastparquet
