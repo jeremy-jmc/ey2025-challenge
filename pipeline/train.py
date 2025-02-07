@@ -14,7 +14,10 @@ print(f"{buffer_radius_features=}")
 # -----------------------------------------------------------------------------
 
 # Retaining only the columns for B01, B06, NDVI, and UHI Index in the dataset.
+print(f"{train_data.shape=}")
 uhi_data = train_data[['B01', 'B06', 'B8A', 'NDVI', 'UHI Index', 'B02', 'B03', 'B04', 'B05', 'B07', 'B08',  'B11', 'B12', 'gNDBI'] + buffer_radius_features]
+print(f"{uhi_data.shape=}")
+
 # print(uhi_data.isna().sum())
 # display(uhi_data.head())
 
@@ -22,18 +25,20 @@ X = uhi_data.drop(columns=['UHI Index'])
 y = uhi_data ['UHI Index'].values
 
 # Apply RFECV
-rfecv = RFECV(estimator=DecisionTreeRegressor(random_state=SEED), cv=KFold(n_splits=5, shuffle=True, random_state=42), scoring='r2', n_jobs=-1)
+rfecv = RFECV(estimator=DecisionTreeRegressor(random_state=SEED), cv=KFold(n_splits=5, shuffle=True, random_state=SEED), scoring='r2', n_jobs=-1)
 X_selected = rfecv.fit_transform(X, y)
+
+print(f"{rfecv.ranking_=}")
+print(f"{rfecv.cv_results_.keys()=}")
 
 # Print selected features
 selected_features = X.columns[rfecv.support_]
-print(f"Selected features: {list(selected_features)}")
+print(f"Selected features ({len(selected_features)}): {list(selected_features)}")
 with open("selected_features.json", "w") as f:
     f.write(json.dumps({
         "selected_features" : list(selected_features)
     }))
 
-print(f"Selected features: {list(selected_features)}")
 
 # -----------------------------------------------------------------------------
 # Train/Test Split
@@ -105,6 +110,25 @@ with open(model_path, 'wb') as model_file:
     pickle.dump(model, model_file)
 
 print(f"Model saved at {model_path}")
+
+# -----------------------------------------------------------------------------
+# Plot the distribution of the error in train and test predictions
+# -----------------------------------------------------------------------------
+
+train_errors = Y_train - insample_predictions
+test_errors = Y_test - outsample_predictions
+
+# Plot Distribution of Errors
+plt.figure(figsize=(10, 5))
+sns.histplot(train_errors, bins=30, kde=True, color="blue", label="Train Error", alpha=0.6)
+sns.histplot(test_errors, bins=30, kde=True, color="red", label="Test Error", alpha=0.6)
+plt.axvline(0, color="black", linestyle="dashed", linewidth=1)  # Reference line at 0
+plt.legend()
+plt.xlabel("Prediction Error")
+plt.ylabel("Frequency")
+plt.title("Error Distribution: Train vs Test")
+plt.show()
+
 
 # -----------------------------------------------------------------------------
 # Model Feature Importances

@@ -15,7 +15,7 @@ print(f"{test_file.shape}=")
 display(test_file.head())
 print(test_file.describe())
 
-selected_features = json.loads(open("selected_Features.json", "r").read())['selected_features']
+selected_features = json.loads(open("selected_features.json", "r").read())['selected_features']
 
 # Scale the training and test data using standardscaler
 sc = joblib.load('./models/scaler.pkl')
@@ -44,4 +44,4 @@ submission_df = pd.DataFrame({
 })
 
 # Dumping the predictions into a csv file.
-submission_df.to_csv("submission.csv",index = False)
+submission_df.to_csv("../submissions/RF_0,9301_CV10_20FT_0,2Test.csv", index=False)

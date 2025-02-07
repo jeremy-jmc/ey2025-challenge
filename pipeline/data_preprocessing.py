@@ -66,23 +66,27 @@ from baseline.utilities import *
 
 from pandarallel import pandarallel
 
-pandarallel.initialize(progress_bar=True)
+pandarallel.initialize(progress_bar=False, nb_workers=12)
 
-# from utilities import *
 
 SENTINEL_TIFF_PATH = '../baseline/S2_sample.tiff' # './S2_sample_5res.tiff'
 LANDSAT_TIFF_PATH = '../baseline/Landsat_LST.tiff'
+MODE = 'train'  # 'submission' 'train'
 
 # Load the training data from csv file and display the first few rows to inspect the data
-ground_df = pd.read_csv("../baseline/Training_data_uhi_index.csv")
-display(ground_df.head())
+if MODE == 'train':
+    ground_df = pd.read_csv("../baseline/Training_data_uhi_index.csv")
 
-# ground_df['datetime'].value_counts()
-display(
-    ground_df.groupby(['Longitude', 'Latitude']).agg({'datetime': 'nunique'})
-    .sort_values('datetime', ascending=False)
-)
-# .reset_index(name='counts')
+    display(ground_df.head())
+    display(ground_df['datetime'].value_counts())
+    display(
+        ground_df.groupby(['Longitude', 'Latitude']).agg({'datetime': 'nunique'})
+        .sort_values('datetime', ascending=False)
+    )   # .reset_index(name='counts')
+elif MODE == 'submission':
+    ground_df = pd.read_csv("../baseline/Submission_template.csv")
+else:
+    raise ValueError("MODE should be either 'train' or 'submission")
 
 # `lower_left` and `upper_right` variables of the "Sentinel2_GeoTIFF" notebook
 display(ground_df[['Longitude', 'Latitude']].describe())
@@ -112,7 +116,8 @@ satellite_bands_df['gNDBI'] = satellite_bands_df['gNDBI'].replace([np.inf, -np.i
 # Data Preprocessing: Generate geographic bounding boxes around the coordinates
 # -----------------------------------------------------------------------------
 
-radius_list = [50, 100, 150, 200, 250]
+# radius_list = [50, 100, 150, 200, 250]        # LB: 0.9306
+radius_list = [25, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300, 350]    # , 375, 400
 bbox_dataset = compute_geographic_bounding_boxes(ground_df[['Longitude', 'Latitude']], radius_list)
 print(bbox_dataset.columns)
 
@@ -127,7 +132,7 @@ selection = get_bbox_selection(LANDSAT_TIFF_PATH, sample)
 lwir11_arr = selection.sel(band=1).to_numpy()
 print(f"{lwir11_arr.shape=}")
 
-fig, ax = plt.subplots(figsize=(11,10))
+fig, ax = plt.subplots(figsize=(11, 10))
 selection.sel(band=1).plot.imshow(vmin=20.0, vmax=45.0, cmap="jet")
 plt.title("Land Surface Temperature (LST)")
 plt.axis('off')
@@ -137,7 +142,7 @@ print(np.nanmean(lwir11_arr), np.nanstd(lwir11_arr))
 print(np.nanmean(selection.sel(band=1)), np.nanstd(selection.sel(band=1)))
 
 landsat_feature_list = []
-for r in radius_list:
+for r in tqdm(radius_list, total=len(radius_list)):
     print(f"Processing {r}m radius")
 
     landsat_features_df[f'ldnst_buffer_{r}m_selection'] = landsat_features_df[f'buffer_{r}m_bbox_4326'].parallel_apply(
@@ -178,7 +183,7 @@ for r in radius_list:
 
 sentinel_focal_radius_ft = []
 
-for r in radius_list:
+for r in tqdm(radius_list, total=len(radius_list)):
     for b in sentinel_data.band.to_numpy():
         print(f"{r=}, {b=}")
         sentinel_features_df[f'sntnl_buffer_band_{b}_{r}_mean'] = sentinel_features_df[f'sntnl_buffer_{r}m_selection'].parallel_apply(
@@ -189,7 +194,7 @@ for r in radius_list:
         )
         sentinel_focal_radius_ft.extend([f'sntnl_buffer_band_{b}_{r}_mean', f'sntnl_buffer_band_{b}_{r}_std'])
 
-for r in radius_list:
+for r in tqdm(radius_list, total=len(radius_list)):
     """
     According to the nomenclature of Sentinel2_GeoTIFF.ipynb, the bands are:
         dst.write(data_slice.B01, 1)
@@ -218,6 +223,37 @@ display(sentinel_features_df[sentinel_focal_radius_ft].head())
 
 
 # -----------------------------------------------------------------------------
+# Feature Engineering: Explore the NY MESONET Weather data
+# -----------------------------------------------------------------------------
+
+ny_mesonet_bronx_df = pd.read_excel('../baseline/NY_Mesonet_Weather.xlsx', sheet_name='Bronx')
+ny_mesonet_manhattan_df = pd.read_excel('../baseline/NY_Mesonet_Weather.xlsx', sheet_name='Manhattan')
+
+ny_mesonet_bronx_df['Date / Time'] = pd.to_datetime(ny_mesonet_bronx_df['Date / Time'])
+ny_mesonet_manhattan_df['Date / Time'] = pd.to_datetime(ny_mesonet_manhattan_df['Date / Time'])
+
+ny_mesonet_bronx_df = ny_mesonet_bronx_df.sort_values('Date / Time')
+ny_mesonet_manhattan_df = ny_mesonet_manhattan_df.sort_values('Date / Time')
+
+print(ny_mesonet_bronx_df.dtypes)
+print(ny_mesonet_manhattan_df.dtypes)
+
+# Filter from 3pm to 4pm
+display(
+    ny_mesonet_bronx_df = ny_mesonet_bronx_df[
+        (ny_mesonet_bronx_df['Date / Time'].dt.hour == 15) |
+        ((ny_mesonet_bronx_df['Date / Time'].dt.hour == 16) & (ny_mesonet_bronx_df['Date / Time'].dt.minute == 0))
+    ].reset_index(drop=True)
+)
+
+display(
+    ny_mesonet_manhattan_df = ny_mesonet_manhattan_df[
+        (ny_mesonet_manhattan_df['Date / Time'].dt.hour == 15) |
+        ((ny_mesonet_manhattan_df['Date / Time'].dt.hour == 16) & (ny_mesonet_manhattan_df['Date / Time'].dt.minute == 0))
+    ].reset_index(drop=True)
+)
+
+# -----------------------------------------------------------------------------
 # * Joining the predictor variables and response variables
 # -----------------------------------------------------------------------------
 
@@ -236,13 +272,19 @@ for col in columns_to_check:
     uhi_data[col] = uhi_data[col].apply(lambda x: tuple(x) if isinstance(x, np.ndarray) and x.ndim > 0 else x)
 
 # Now remove duplicates
-uhi_data = uhi_data.drop_duplicates(subset=columns_to_check, keep='first')
+if MODE == 'train':
+    uhi_data = uhi_data.drop_duplicates(subset=columns_to_check, keep='first')
 
 # Resetting the index of the dataset
 uhi_data = uhi_data.reset_index(drop=True)
 
 # Saving the dataset to a parquet file
-uhi_data.to_parquet('./data/train_data.parquet')
+if MODE == 'train':
+    uhi_data.to_parquet('./data/train_data.parquet')
+elif MODE == 'submission':
+    uhi_data.to_parquet('./data/submission_data.parquet')
+else:
+    raise ValueError("MODE should be either 'train' or 'submission'")
 
 # Saving the extracted column names into a JSON file
 with open('./data/columns.json', 'w') as f:
@@ -256,3 +298,5 @@ print(f"{list(uhi_data.columns)=}")
 INSIGHT:
     The mean and the std on each focal buffer using the B01 extracted from Sentinel2 TIFF improves the model
 """
+
+# ls -lh --block-size=M ./data
