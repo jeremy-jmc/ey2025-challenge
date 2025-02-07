@@ -11,9 +11,9 @@ from baseline.utilities import *
 ''' SUBMISSION '''
 #Reading the coordinates for the submission
 test_file = pd.read_csv('../baseline/Submission_template.csv')
-print(test_file.shape)
-
+print(f"{test_file.shape}=")
 display(test_file.head())
+print(test_file.describe())
 
 
 # Mapping satellite data for submission.
@@ -29,6 +29,10 @@ submission_val_data = val_data.loc[:,['B01','B06','NDVI']]
 # Feature Scaling 
 submission_val_data = submission_val_data.values
 transformed_submission_data = sc.transform(submission_val_data)
+
+# * Load Model
+model = joblib.load('./models/random_forest_model.pkl')
+print(model.oob_score_)
 
 # Making predictions
 final_predictions = model.predict(transformed_submission_data)

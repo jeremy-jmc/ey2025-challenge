@@ -86,6 +86,14 @@ for fold in [3, 5, 10]:
     print(f"{fold} - Standard Deviation of R² Scores: {np.std(r2_scores):.4f}")
     print()
 
+# * Save the model
+os.makedirs('./models', exist_ok=True)
+model_path = './models/random_forest_model.pkl'
+
+with open(model_path, 'wb') as model_file:
+    pickle.dump(model, model_file)
+
+print(f"Model saved at {model_path}")
 
 # -----------------------------------------------------------------------------
 # Model Feature Importances
