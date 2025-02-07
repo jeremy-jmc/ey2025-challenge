@@ -7,6 +7,7 @@ train_data = pd.read_parquet('./data/train_data.parquet')
 column_dict = json.loads(open('./data/columns.json').read())
 
 buffer_radius_features = column_dict['focal_radius_features']
+print(f"{buffer_radius_features=}")
 
 # Retaining only the columns for B01, B06, NDVI, and UHI Index in the dataset.
 uhi_data = train_data[['B01', 'B06', 'B8A', 'NDVI', 'UHI Index'] + buffer_radius_features] # , 'B02', 'B03', 'B04', 'B05', 'B07', 'B08',  'B11', 'B12', 'gNDBI'
@@ -38,9 +39,12 @@ X_test = sc.transform(X_test)
 # -----------------------------------------------------------------------------
 
 # * Train the Random Forest model on the training data
-model = RandomForestRegressor(n_estimators=100, random_state=SEED)
+model = RandomForestRegressor(n_estimators=100, oob_score=True, random_state=SEED)
 # model = lgb.LGBMRegressor(n_estimators=100, boosting_type='rf', random_state=SEED, bagging_freq=1, bagging_fraction=0.8)
 model.fit(X_train, y_train)
+
+# * OOB Score
+print(f"{model.oob_score_=}")
 
 # * Make predictions on the training data
 insample_predictions = model.predict(X_train)
@@ -66,3 +70,11 @@ for fold in [3, 5, 10]:
     print(f"{fold} - Mean R² Score: {np.mean(r2_scores):.4f}")
     print(f"{fold} - Standard Deviation of R² Scores: {np.std(r2_scores):.4f}")
     print()
+
+
+# -----------------------------------------------------------------------------
+# Model Feature Importances
+# -----------------------------------------------------------------------------
+
+# TODO: Research how to plot FE using the data proportined by the model and then, with SHAP Python library
+

@@ -112,7 +112,7 @@ satellite_bands_df['gNDBI'] = satellite_bands_df['gNDBI'].replace([np.inf, -np.i
 # Data Preprocessing: Generate geographic bounding boxes around the coordinates
 # -----------------------------------------------------------------------------
 
-radius_list = [50, 150, 100, 200, 250]
+radius_list = [50, 100, 150, 200, 250]
 bbox_dataset = compute_geographic_bounding_boxes(ground_df[['Longitude', 'Latitude']], radius_list)
 print(bbox_dataset.columns)
 
@@ -157,10 +157,11 @@ for r in radius_list:
 
 landsat_data = rxr.open_rasterio(LANDSAT_TIFF_PATH)
 
-landsat_features_df['lwir_point'] = ground_df[['Latitude', 'Longitude']].progress_apply(
+landsat_features_df['lndst_lwir_point'] = ground_df[['Latitude', 'Longitude']].progress_apply(
     lambda x: landsat_data.sel(x=x['Longitude'], y=x['Latitude'], method='nearest').values[0],
     axis=1
 )
+landsat_feature_list.append('lndst_lwir_point')
 
 # -----------------------------------------------------------------------------
 # Feature Engineering: Extract features from the bounding boxes extracted above using Sentinel 2 TIFF
@@ -168,12 +169,26 @@ landsat_features_df['lwir_point'] = ground_df[['Latitude', 'Longitude']].progres
 
 sentinel_features_df = bbox_dataset.copy()
 
+sentinel_data = rxr.open_rasterio(SENTINEL_TIFF_PATH)
+
 for r in radius_list:
     sentinel_features_df[f'sntnl_buffer_{r}m_selection'] = sentinel_features_df[f'buffer_{r}m_bbox_4326'].parallel_apply(
         lambda bbox: get_bbox_selection(SENTINEL_TIFF_PATH, bbox)
     )
 
 sentinel_focal_radius_ft = []
+
+for r in radius_list:
+    for b in sentinel_data.band.to_numpy():
+        print(f"{r=}, {b=}")
+        sentinel_features_df[f'sntnl_buffer_band_{b}_{r}_mean'] = sentinel_features_df[f'sntnl_buffer_{r}m_selection'].parallel_apply(
+            lambda patch: np.nanmean(patch.sel(band=b))
+        )
+        sentinel_features_df[f'sntnl_buffer_band_{b}_{r}_std'] = sentinel_features_df[f'sntnl_buffer_{r}m_selection'].parallel_apply(
+            lambda patch: np.nanstd(patch.sel(band=b))
+        )
+        sentinel_focal_radius_ft.extend([f'sntnl_buffer_band_{b}_{r}_mean', f'sntnl_buffer_band_{b}_{r}_std'])
+
 for r in radius_list:
     """
     According to the nomenclature of Sentinel2_GeoTIFF.ipynb, the bands are:
@@ -214,7 +229,7 @@ uhi_data = combine_two_datasets(uhi_data, landsat_features_df[landsat_feature_li
 all_features = uhi_data.copy()
 
 # Remove duplicate rows from the DataFrame based on specified columns and keep the first occurrence
-columns_to_check = ['B01','B06','NDVI','UHI Index', 'B02', 'B03', 'B04', 'B05', 'B07', 'B08', 'B8A', 'B11', 'B12', 'gNDBI']
+columns_to_check = ['B01', 'B06', 'NDVI', 'UHI Index', 'B02', 'B03', 'B04', 'B05', 'B07', 'B08', 'B8A', 'B11', 'B12', 'gNDBI']
 
 for col in columns_to_check:
     # Check if the value is a numpy array and has more than one dimension
@@ -235,6 +250,7 @@ with open('./data/columns.json', 'w') as f:
         'focal_radius_features': sentinel_focal_radius_ft + landsat_feature_list,
     }, f)
 
+print(f"{list(uhi_data.columns)=}")
 
 """
 INSIGHT:
