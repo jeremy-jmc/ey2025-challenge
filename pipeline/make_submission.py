@@ -10,25 +10,23 @@ from baseline.utilities import *
 
 ''' SUBMISSION '''
 #Reading the coordinates for the submission
-test_file = pd.read_csv('../baseline/Submission_template.csv')
+test_file = pd.read_parquet('./data/submission_data.parquet')
 print(f"{test_file.shape}=")
 display(test_file.head())
 print(test_file.describe())
 
+selected_features = json.loads(open("selected_Features.json", "r").read())['selected_features']
 
-# Mapping satellite data for submission.
-val_data = map_satellite_data(TIFF_PATH, 'Submission_template.csv')
+# Scale the training and test data using standardscaler
+sc = joblib.load('./models/scaler.pkl')
 
-# Calculate NDVI (Normalized Difference Vegetation Index) and handle division by zero by replacing infinities with NaN.
-val_data['NDVI'] = (val_data['B08'] - val_data['B04']) / (val_data['B08'] + val_data['B04'])
-val_data['NDVI'] = val_data['NDVI'].replace([np.inf, -np.inf], np.nan)  # Replace infinities with NaN
-
-# Extracting specific columns (B01, B06, and NDVI) from the validation dataset
-submission_val_data = val_data.loc[:,['B01','B06','NDVI']]
-
-# Feature Scaling 
-submission_val_data = submission_val_data.values
-transformed_submission_data = sc.transform(submission_val_data)
+transformed_submission_data = sc.transform(test_file.drop(columns=['Latitude', 'Longitude', 'UHI Index']))# [selected_features]
+transformed_submission_data = (
+    pd.DataFrame(transformed_submission_data, 
+                 columns=[col for col in test_file.columns if col not in ['Latitude', 'Longitude', 'UHI Index']]
+    )
+    [selected_features]
+)
 
 # * Load Model
 model = joblib.load('./models/random_forest_model.pkl')
