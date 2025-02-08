@@ -44,4 +44,4 @@ submission_df = pd.DataFrame({
 })
 
 # Dumping the predictions into a csv file.
-submission_df.to_csv("../submissions/RF_0,9301_CV10_20FT_0,2Test.csv", index=False)
+submission_df.to_csv("../submissions/RF_0,9553_CV10_7FT_0,2Test.csv", index=False)

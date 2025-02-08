@@ -142,7 +142,7 @@ print(np.nanmean(lwir11_arr), np.nanstd(lwir11_arr))
 print(np.nanmean(selection.sel(band=1)), np.nanstd(selection.sel(band=1)))
 
 landsat_feature_list = []
-for r in tqdm(radius_list, total=len(radius_list)):
+for r in tqdm(radius_list, total=len(radius_list), desc='Landsat LWIR11'):
     print(f"Processing {r}m radius")
 
     landsat_features_df[f'ldnst_buffer_{r}m_selection'] = landsat_features_df[f'buffer_{r}m_bbox_4326'].parallel_apply(
@@ -183,9 +183,9 @@ for r in radius_list:
 
 sentinel_focal_radius_ft = []
 
-for r in tqdm(radius_list, total=len(radius_list)):
+for r in tqdm(radius_list, total=len(radius_list), desc='Sentinel-2 Bands'):
     for b in sentinel_data.band.to_numpy():
-        print(f"{r=}, {b=}")
+        # print(f"{r=}, {b=}")
         sentinel_features_df[f'sntnl_buffer_band_{b}_{r}_mean'] = sentinel_features_df[f'sntnl_buffer_{r}m_selection'].parallel_apply(
             lambda patch: np.nanmean(patch.sel(band=b))
         )
@@ -194,7 +194,7 @@ for r in tqdm(radius_list, total=len(radius_list)):
         )
         sentinel_focal_radius_ft.extend([f'sntnl_buffer_band_{b}_{r}_mean', f'sntnl_buffer_band_{b}_{r}_std'])
 
-for r in tqdm(radius_list, total=len(radius_list)):
+for r in tqdm(radius_list, total=len(radius_list), desc='Sentinel-2 NDVI/Vegetation Ratio'):
     """
     According to the nomenclature of Sentinel2_GeoTIFF.ipynb, the bands are:
         dst.write(data_slice.B01, 1)
@@ -226,6 +226,9 @@ display(sentinel_features_df[sentinel_focal_radius_ft].head())
 # Feature Engineering: Explore the NY MESONET Weather data
 # -----------------------------------------------------------------------------
 
+ny_bronx_point = (40.87248, -73.89352)
+ny_manhattan_point = (40.76754, -73.96449)
+
 ny_mesonet_bronx_df = pd.read_excel('../baseline/NY_Mesonet_Weather.xlsx', sheet_name='Bronx')
 ny_mesonet_manhattan_df = pd.read_excel('../baseline/NY_Mesonet_Weather.xlsx', sheet_name='Manhattan')
 
@@ -239,19 +242,109 @@ print(ny_mesonet_bronx_df.dtypes)
 print(ny_mesonet_manhattan_df.dtypes)
 
 # Filter from 3pm to 4pm
-display(
-    ny_mesonet_bronx_df = ny_mesonet_bronx_df[
-        (ny_mesonet_bronx_df['Date / Time'].dt.hour == 15) |
-        ((ny_mesonet_bronx_df['Date / Time'].dt.hour == 16) & (ny_mesonet_bronx_df['Date / Time'].dt.minute == 0))
-    ].reset_index(drop=True)
+ny_mesonet_bronx_df = ny_mesonet_bronx_df[
+    (ny_mesonet_bronx_df['Date / Time'].dt.hour == 15) |
+    ((ny_mesonet_bronx_df['Date / Time'].dt.hour == 16) & (ny_mesonet_bronx_df['Date / Time'].dt.minute == 0))
+].reset_index(drop=True)
+display(ny_mesonet_bronx_df)
+
+ny_mesonet_manhattan_df = ny_mesonet_manhattan_df[
+    (ny_mesonet_manhattan_df['Date / Time'].dt.hour == 15) |
+    ((ny_mesonet_manhattan_df['Date / Time'].dt.hour == 16) & (ny_mesonet_manhattan_df['Date / Time'].dt.minute == 0))
+].reset_index(drop=True)
+display(ny_mesonet_manhattan_df)
+
+ny_mesonet_features = ground_df[['Latitude', 'Longitude']].copy()
+ny_mesonet_features.columns = ny_mesonet_features.columns.str.lower()
+
+ny_mesonet_features['distance_bronx'] = ny_mesonet_features.parallel_apply(
+    lambda x: distance_meters(x, ny_bronx_point),
+    axis=1
+)
+ny_mesonet_features['distance_manhattan'] = ny_mesonet_features.parallel_apply(
+    lambda x: distance_meters(x, ny_manhattan_point),
+    axis=1
 )
 
-display(
-    ny_mesonet_manhattan_df = ny_mesonet_manhattan_df[
-        (ny_mesonet_manhattan_df['Date / Time'].dt.hour == 15) |
-        ((ny_mesonet_manhattan_df['Date / Time'].dt.hour == 16) & (ny_mesonet_manhattan_df['Date / Time'].dt.minute == 0))
-    ].reset_index(drop=True)
+ny_mesonet_features['ratio_dist_bronx_manhattan'] = (
+    ny_mesonet_features['distance_bronx'] / (
+        ny_mesonet_features['distance_manhattan'] + ny_mesonet_features['distance_bronx']
+    )
 )
+ny_mesonet_features['ratio_dist_manhattan_bronx'] = (
+    ny_mesonet_features['distance_manhattan'] / (
+        ny_mesonet_features['distance_manhattan'] + ny_mesonet_features['distance_bronx']
+    )
+)
+
+from math import radians, degrees, atan2, sin, cos
+
+def compute_bearing(from_point: tuple, to_point: tuple) -> float:
+    lat1, lon1 = from_point
+    lat2, lon2 = to_point
+    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+    delta_lon = lon2 - lon1
+    x = sin(delta_lon) * cos(lat2)
+    y = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(delta_lon)
+    bearing = degrees(atan2(x, y))
+    return (bearing + 360) % 360
+
+ny_mesonet_features['bearing_bronx'] = ny_mesonet_features[['latitude', 'longitude']].parallel_apply(
+    lambda x: compute_bearing(ny_bronx_point, (x['latitude'], x['longitude'])),
+    axis=1
+)
+
+ny_mesonet_features['bearing_manhattan'] = ny_mesonet_features[['latitude', 'longitude']].parallel_apply(
+    lambda x: compute_bearing(ny_manhattan_point, (x['latitude'], x['longitude'])),
+    axis=1
+)
+
+ny_mesonet_bm_df = pd.concat([ny_mesonet_bronx_df.assign(location='bronx'), ny_mesonet_manhattan_df.assign(location='manhattan')], axis=0)
+
+ny_mesonet_bm_df_pivot = ny_mesonet_bm_df.pivot(
+    index="location", 
+    columns="Date / Time", 
+    values="Wind Direction [degrees]"
+)
+ny_mesonet_bm_df_pivot.columns = [f"Wind Speed Degrees {col}" for col in ny_mesonet_bm_df_pivot.columns]
+ny_mesonet_bm_df_pivot = ny_mesonet_bm_df_pivot.reset_index(drop=False)
+
+display(ny_mesonet_bm_df_pivot) # .to_dict(orient='tight')
+
+ny_mesonet_bm_dict = {
+    "location": {
+        row["location"]: {
+            f"Wind Speed {col.split()[-1]}": row[col]
+            for col in ny_mesonet_bm_df_pivot.columns if col != "location"
+        }
+        for _, row in ny_mesonet_bm_df_pivot.iterrows()
+    }
+}
+print(json.dumps(ny_mesonet_bm_dict, indent=2))
+
+for loc in ny_mesonet_bm_dict['location']:
+    print(loc)
+    for k, v in ny_mesonet_bm_dict['location'][loc].items():
+        print(f"{k}: {v}")
+        ny_mesonet_features[f"Wind Influence {k.split()[-1]} {loc}"] = ny_mesonet_features[f'bearing_{loc}'].parallel_apply(
+            lambda x: np.cos(np.radians(v - x))
+        )
+
+ny_mesonet_features.columns = [
+    col.replace(' ', '_').lower() for col in ny_mesonet_features.columns
+]
+
+display(ny_mesonet_features)
+
+ny_mesonet_features = ny_mesonet_features.drop(
+    columns=['latitude', 'longitude', 'distance_bronx', 'distance_manhattan', 'ratio_dist_bronx_manhattan', 'ratio_dist_manhattan_bronx']
+    # 'latitude', 'longitude', 
+)
+
+# uhi_data = pd.read_parquet('./data/train_data.parquet').merge(
+#     ny_mesonet_features, right_on=['latitude', 'longitude'], left_on=['Latitude', 'Longitude'],
+#     how='left'
+# )
 
 # -----------------------------------------------------------------------------
 # * Joining the predictor variables and response variables
@@ -261,6 +354,7 @@ display(
 uhi_data = combine_two_datasets(ground_df,satellite_bands_df)
 uhi_data = combine_two_datasets(uhi_data, sentinel_features_df[sentinel_focal_radius_ft])
 uhi_data = combine_two_datasets(uhi_data, landsat_features_df[landsat_feature_list])
+uhi_data = combine_two_datasets(uhi_data, ny_mesonet_features)
 
 all_features = uhi_data.copy()
 
@@ -273,10 +367,12 @@ for col in columns_to_check:
 
 # Now remove duplicates
 if MODE == 'train':
+    uhi_data.to_parquet('./data/train_data_with_duplicates.parquet')
     uhi_data = uhi_data.drop_duplicates(subset=columns_to_check, keep='first')
 
 # Resetting the index of the dataset
 uhi_data = uhi_data.reset_index(drop=True)
+print(uhi_data.isna().sum())
 
 # Saving the dataset to a parquet file
 if MODE == 'train':
@@ -288,11 +384,17 @@ else:
 
 # Saving the extracted column names into a JSON file
 with open('./data/columns.json', 'w') as f:
+    # TODO: edit the key name to consistency of meaning
     json.dump({
-        'focal_radius_features': sentinel_focal_radius_ft + landsat_feature_list,
+        'focal_radius_features': sentinel_focal_radius_ft + landsat_feature_list + list(ny_mesonet_features.columns),
     }, f)
 
 print(f"{list(uhi_data.columns)=}")
+
+# columns = json.loads(open('./data/columns.json').read())
+# columns['focal_radius_features'].extend(list(ny_mesonet_features.columns))
+# with open('./data/columns.json', 'w') as f:
+#     f.write(json.dumps(columns))
 
 """
 INSIGHT:

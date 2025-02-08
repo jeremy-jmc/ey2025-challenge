@@ -7,7 +7,7 @@ train_data = pd.read_parquet('./data/train_data.parquet')
 column_dict = json.loads(open('./data/columns.json').read())
 
 buffer_radius_features = column_dict['focal_radius_features']
-print(f"{buffer_radius_features=}")
+print(f"({len(buffer_radius_features)}) -> {buffer_radius_features=}")
 
 # -----------------------------------------------------------------------------
 # Feature selection
@@ -16,9 +16,10 @@ print(f"{buffer_radius_features=}")
 # Retaining only the columns for B01, B06, NDVI, and UHI Index in the dataset.
 print(f"{train_data.shape=}")
 uhi_data = train_data[['B01', 'B06', 'B8A', 'NDVI', 'UHI Index', 'B02', 'B03', 'B04', 'B05', 'B07', 'B08',  'B11', 'B12', 'gNDBI'] + buffer_radius_features]
+# .drop(columns=['Longitude', 'Latitude', 'datetime'])
 print(f"{uhi_data.shape=}")
 
-# print(uhi_data.isna().sum())
+print(uhi_data.isna().sum())
 # display(uhi_data.head())
 
 X = uhi_data.drop(columns=['UHI Index'])
