@@ -26,6 +26,7 @@ import rioxarray as rxr
 import geopandas as gpd
 
 # Geospatial operations
+from geopy.distance import geodesic
 import rasterio
 from rasterio import windows  
 from rasterio import features  
@@ -64,6 +65,8 @@ import joblib
 import pickle
 from tqdm import tqdm
 
+
+pd.set_option('display.max_columns', None)
 tqdm.pandas()
 
 SEED = 42
@@ -253,3 +256,11 @@ def get_bbox_selection(tiff_path, bbox):
     )
 
     return selection
+
+
+def distance_meters(row, point):
+    lat, lon = point
+    return geodesic(
+        (row['latitude'], row['longitude']),
+        (lat, lon)
+    ).meters
