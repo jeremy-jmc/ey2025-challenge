@@ -62,6 +62,7 @@ from pystac.extensions.eo import EOExtension as eo
 import os
 import json
 import joblib
+from math import radians, degrees, atan2, sin, cos
 import pickle
 from tqdm import tqdm
 
@@ -264,3 +265,15 @@ def distance_meters(row, point):
         (row['latitude'], row['longitude']),
         (lat, lon)
     ).meters
+
+
+def compute_bearing(from_point: tuple, to_point: tuple) -> float:
+    lat1, lon1 = from_point
+    lat2, lon2 = to_point
+    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+    delta_lon = lon2 - lon1
+    x = sin(delta_lon) * cos(lat2)
+    y = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(delta_lon)
+    bearing = degrees(atan2(x, y))
+    return (bearing + 360) % 360
+

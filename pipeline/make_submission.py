@@ -9,8 +9,15 @@ sys.path.append('..')
 from baseline.utilities import *
 
 ''' SUBMISSION '''
-#Reading the coordinates for the submission
+# * Reading the coordinates for the submission
 test_file = pd.read_parquet('./data/submission_data.parquet')
+# for col in test_file:
+#     print(col)
+
+train_cols = pd.read_parquet('./data/train_data.parquet').columns
+submission_cols = test_file.columns
+print(set.difference(set(train_cols), set(submission_cols)))
+
 print(f"{test_file.shape}=")
 display(test_file.head())
 print(test_file.describe())

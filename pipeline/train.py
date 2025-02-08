@@ -4,6 +4,10 @@ sys.path.append('..')
 from baseline.utilities import *
 
 train_data = pd.read_parquet('./data/train_data.parquet')
+
+for col in train_data.columns:
+    print(col)
+
 column_dict = json.loads(open('./data/columns.json').read())
 
 buffer_radius_features = column_dict['focal_radius_features']
@@ -28,6 +32,11 @@ y = uhi_data ['UHI Index'].values
 # Apply RFECV
 rfecv = RFECV(estimator=DecisionTreeRegressor(random_state=SEED), cv=KFold(n_splits=5, shuffle=True, random_state=SEED), scoring='r2', n_jobs=-1)
 X_selected = rfecv.fit_transform(X, y)
+# TODO: ValDLaw23 research the computational viability of BorutaRandomForest or another method to select features
+"""
+https://www.kaggle.com/code/residentmario/automated-feature-selection-with-boruta
+https://amueller.github.io/aml/05-advanced-topics/12-feature-selection.html
+"""
 
 print(f"{rfecv.ranking_=}")
 print(f"{rfecv.cv_results_.keys()=}")
@@ -71,6 +80,7 @@ with open(scaler_path, 'wb') as scaler_file:
 # -----------------------------------------------------------------------------
 
 # * Train the Random Forest model on the training data
+# TODO: @ValDLaw23 try boosting methods and another models like XGBoost, LightGBM, CatBoost, GradientBoosting, HistGradientBoosting, etc
 model = RandomForestRegressor(n_estimators=100, oob_score=True, random_state=SEED)
 # model = lgb.LGBMRegressor(n_estimators=100, boosting_type='rf', random_state=SEED, bagging_freq=1, bagging_fraction=0.8)
 model.fit(X_train, y_train)
@@ -135,7 +145,14 @@ plt.show()
 # Model Feature Importances
 # -----------------------------------------------------------------------------
 
-# TODO: Research how to plot FE using the data proportined by the model and then, with SHAP Python library
+# TODO: @ValDLaw23 research how to plot FE using the data proportioned by the model and then, with SHAP Python library
 
+"""
+https://shap.readthedocs.io/en/latest/example_notebooks/overviews/An%20introduction%20to%20explainable%20AI%20with%20Shapley%20values.html
+https://mljar.com/blog/feature-importance-in-random-forest/
+https://github.com/search?type=code&q=%22RandomForestRegressor%28%22+AND+%22importance%22+language%3APython
+https://github.com/search?type=code&q=%22RandomForestRegressor%28%22+AND+%22shap%22+language%3APython
+"""
     
+# TODO: Research if exists a way to "explain the decision path of random forest with LLMs"
 # !python3.10 -m pip install pyarrow fastparquet
