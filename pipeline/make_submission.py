@@ -11,12 +11,17 @@ from baseline.utilities import *
 ''' SUBMISSION '''
 # * Reading the coordinates for the submission
 test_file = pd.read_parquet('./data/submission_data.parquet')
+# test_file = test_file[[col for col in test_file.columns if 'diff_wind_influence_' not in col]]
 # for col in test_file:
 #     print(col)
 
 train_cols = pd.read_parquet('./data/train_data.parquet').columns
 submission_cols = test_file.columns
 print(set.difference(set(train_cols), set(submission_cols)))
+print(set.difference(set(submission_cols), set(train_cols)))
+
+print(f"{test_file.shape=}")
+print(f"{len(train_cols)=}")
 
 print(f"{test_file.shape}=")
 display(test_file.head())
@@ -51,4 +56,4 @@ submission_df = pd.DataFrame({
 })
 
 # Dumping the predictions into a csv file.
-submission_df.to_csv("../submissions/RF_0,9553_CV10_7FT_0,2Test.csv", index=False)
+submission_df.to_csv("../submissions/RF_0,9557_CV10_13FT_0,2Test_fix_computation_pct_change.csv", index=False)

@@ -1,16 +1,17 @@
 {
     "selected_features": [
         "sntnl_buffer_band_7_350_std",
-        "sntnl_buffer_band_10_350_mean",
-        "sntnl_mean_ndvi_125m",
+        "sntnl_buffer_band_10_350_std",
         "sntnl_mean_ndvi_350m",
+        "lndst_mean_lwir11_150m",
         "lndst_mean_lwir11_275m",
         "lndst_std_lwir11_350m",
-        "wind_influence_15:25:00_bronx",
         "wind_influence_15:40:00_manhattan",
+        "pct_change_wind_influence_15:05:00_bronx",
         "pct_change_wind_influence_15:15:00_bronx",
         "pct_change_wind_influence_15:20:00_bronx",
         "pct_change_wind_influence_15:05:00_manhattan",
+        "pct_change_wind_influence_15:25:00_manhattan",
         "pct_change_wind_influence_15:40:00_manhattan"
     ]
 }

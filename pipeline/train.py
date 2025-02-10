@@ -4,13 +4,17 @@ sys.path.append('..')
 from baseline.utilities import *
 
 train_data = pd.read_parquet('./data/train_data.parquet')
+try:
+    train_data = train_data.drop(columns=['latitude', 'longitude'])
+except:
+    pass
 
 for col in train_data.columns:
     print(col)
 
 column_dict = json.loads(open('./data/columns.json').read())
 
-buffer_radius_features = column_dict['focal_radius_features']
+buffer_radius_features = [col for col in column_dict['focal_radius_features']]  #  if 'diff_wind_influence_' not in col
 print(f"({len(buffer_radius_features)}) -> {buffer_radius_features=}")
 
 # -----------------------------------------------------------------------------
@@ -26,11 +30,18 @@ print(f"{uhi_data.shape=}")
 print(uhi_data.isna().sum())
 # display(uhi_data.head())
 
-X = uhi_data.drop(columns=['UHI Index'])
+X = uhi_data.drop(columns=['UHI Index'])    
 y = uhi_data ['UHI Index'].values
+
+# corr_matrix = X.corr()
+# plt.figure()
+# sns.heatmap(corr_matrix, annot=True, cmap="coolwarm", fmt=".2f")
+# plt.title("Feature Correlation Matrix")
+# plt.show()
 
 # Apply RFECV
 rfecv = RFECV(estimator=DecisionTreeRegressor(random_state=SEED), cv=KFold(n_splits=5, shuffle=True, random_state=SEED), scoring='r2', n_jobs=-1)
+
 X_selected = rfecv.fit_transform(X, y)
 # TODO: ValDLaw23 research the computational viability of BorutaRandomForest or another method to select features
 """
@@ -40,6 +51,15 @@ https://amueller.github.io/aml/05-advanced-topics/12-feature-selection.html
 
 print(f"{rfecv.ranking_=}")
 print(f"{rfecv.cv_results_.keys()=}")
+
+plt.figure()
+plt.plot(rfecv.cv_results_['n_features'][2:], rfecv.cv_results_['mean_test_score'][2:], color='blue')
+# plt.xscale('log')
+# plt.yscale('log')
+plt.xlabel('Number of Features Selected')
+plt.ylabel('Cross-Validation Score')
+plt.title('RFECV - Number of Features vs. Cross-Validation Score')
+plt.show()
 
 # Print selected features
 selected_features = X.columns[rfecv.support_]
@@ -76,7 +96,7 @@ with open(scaler_path, 'wb') as scaler_file:
     pickle.dump(sc, scaler_file)
 
 # -----------------------------------------------------------------------------
-# Model training
+# Train model with Selected Features
 # -----------------------------------------------------------------------------
 
 # * Train the Random Forest model on the training data

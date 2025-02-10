@@ -66,12 +66,12 @@ from baseline.utilities import *
 
 from pandarallel import pandarallel
 
-pandarallel.initialize(progress_bar=False, nb_workers=12)
+pandarallel.initialize(progress_bar=False, nb_workers=8)
 
 
 SENTINEL_TIFF_PATH = '../baseline/S2_sample.tiff' # './S2_sample_5res.tiff'
 LANDSAT_TIFF_PATH = '../baseline/Landsat_LST.tiff'
-MODE = 'train'  # 'submission' 'train'
+MODE = 'submission'  # 'submission' 'train'
 
 # Load the training data from csv file and display the first few rows to inspect the data
 if MODE == 'train':
@@ -143,7 +143,7 @@ print(np.nanmean(selection.sel(band=1)), np.nanstd(selection.sel(band=1)))
 
 landsat_feature_list = []
 for r in tqdm(radius_list, total=len(radius_list), desc='Landsat LWIR11'):
-    print(f"Processing {r}m radius")
+    # print(f"Processing {r}m radius")
 
     landsat_features_df[f'ldnst_buffer_{r}m_selection'] = landsat_features_df[f'buffer_{r}m_bbox_4326'].parallel_apply(
         lambda bbox: get_bbox_selection(LANDSAT_TIFF_PATH, bbox)
@@ -183,9 +183,9 @@ for r in radius_list:
 
 sentinel_focal_radius_ft = []
 
-for r in tqdm(radius_list, total=len(radius_list), desc='Sentinel-2 Bands'):
+for r in radius_list:   # tqdm(radius_list, total=len(radius_list), desc='Sentinel-2 Bands')
     for b in sentinel_data.band.to_numpy():
-        # print(f"{r=}, {b=}")
+        print(f"{r=}, {b=}")
         sentinel_features_df[f'sntnl_buffer_band_{b}_{r}_mean'] = sentinel_features_df[f'sntnl_buffer_{r}m_selection'].parallel_apply(
             lambda patch: np.nanmean(patch.sel(band=b))
         )
@@ -202,7 +202,7 @@ for r in tqdm(radius_list, total=len(radius_list), desc='Sentinel-2 NDVI/Vegetat
         dst.write(data_slice.B06, 3) 
         dst.write(data_slice.B08, 4)
     """
-    print(f"Processing {r}m radius")
+    # print(f"Processing {r}m radius")
     sentinel_features_df[f'sntnl_ndvi_{r}m'] = sentinel_features_df[f'sntnl_buffer_{r}m_selection'].parallel_apply(
         lambda patch: (patch.sel(band=4) - patch.sel(band=2))/(patch.sel(band=4) + patch.sel(band=2))
         # get_ndvi(bbox)
@@ -277,17 +277,6 @@ ny_mesonet_features['ratio_dist_manhattan_bronx'] = (
     )
 )
 
-from math import radians, degrees, atan2, sin, cos
-
-def compute_bearing(from_point: tuple, to_point: tuple) -> float:
-    lat1, lon1 = from_point
-    lat2, lon2 = to_point
-    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
-    delta_lon = lon2 - lon1
-    x = sin(delta_lon) * cos(lat2)
-    y = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(delta_lon)
-    bearing = degrees(atan2(x, y))
-    return (bearing + 360) % 360
 
 ny_mesonet_features['bearing_bronx'] = ny_mesonet_features[['latitude', 'longitude']].parallel_apply(
     lambda x: compute_bearing(ny_bronx_point, (x['latitude'], x['longitude'])),
@@ -301,20 +290,32 @@ ny_mesonet_features['bearing_manhattan'] = ny_mesonet_features[['latitude', 'lon
 
 ny_mesonet_bm_df = pd.concat([ny_mesonet_bronx_df.assign(location='bronx'), ny_mesonet_manhattan_df.assign(location='manhattan')], axis=0)
 
-ny_mesonet_bm_df_pivot = ny_mesonet_bm_df.pivot(
+ny_mesonet_bm_wind_dir_pivot = ny_mesonet_bm_df.pivot(
     index="location", 
     columns="Date / Time", 
     values="Wind Direction [degrees]"
 )
-ny_mesonet_bm_df_pivot.columns = [f"Wind Speed Degrees {col}" for col in ny_mesonet_bm_df_pivot.columns]
-ny_mesonet_bm_df_pivot = ny_mesonet_bm_df_pivot.reset_index(drop=False)
+ny_mesonet_bm_wind_dir_pivot.columns = [f"Wind Direction [degrees] {col}" for col in ny_mesonet_bm_wind_dir_pivot.columns]
+ny_mesonet_bm_wind_dir_pivot = ny_mesonet_bm_wind_dir_pivot.reset_index(drop=False)
+
+nymesonet_bm_avg_wind_speed_pivot = ny_mesonet_bm_df.pivot(
+    index="location",
+    columns="Date / Time",
+    values="Avg Wind Speed [m/s]"
+)
+nymesonet_bm_avg_wind_speed_pivot.columns = [f"Avg Wind Speed [m/s] {col}" for col in nymesonet_bm_avg_wind_speed_pivot.columns]
+nymesonet_bm_avg_wind_speed_pivot = nymesonet_bm_avg_wind_speed_pivot.reset_index(drop=False)
+
+ny_mesonet_bm_df_pivot = pd.merge(
+    ny_mesonet_bm_wind_dir_pivot, nymesonet_bm_avg_wind_speed_pivot, on="location"
+)
 
 display(ny_mesonet_bm_df_pivot) # .to_dict(orient='tight')
 
 ny_mesonet_bm_dict = {
     "location": {
         row["location"]: {
-            f"Wind Speed {col.split()[-1]}": row[col]
+            col : row[col]  # f"Wind Direction {col.split()[-1]}"
             for col in ny_mesonet_bm_df_pivot.columns if col != "location"
         }
         for _, row in ny_mesonet_bm_df_pivot.iterrows()
@@ -326,9 +327,14 @@ for loc in ny_mesonet_bm_dict['location']:
     print(loc)
     for k, v in ny_mesonet_bm_dict['location'][loc].items():
         print(f"{k}: {v}")
-        ny_mesonet_features[f"Wind Influence {k.split()[-1]} {loc}"] = ny_mesonet_features[f'bearing_{loc}'].parallel_apply(
-            lambda x: np.cos(np.radians(v - x))
-        )
+        if k.startswith('Wind Direction'):    
+            ny_mesonet_features[f"Wind Influence {k.split()[-1]} {loc}"] = ny_mesonet_features[f'bearing_{loc}'].parallel_apply(
+                lambda x: np.cos(np.radians(v - x))
+            )
+        # elif k.startswith('Avg Wind Speed'):
+        #     ny_mesonet_features[f"Weighted Wind Influence {k.split()[-1]} {loc}"] = (
+        #         ny_mesonet_features[f"Wind Influence {k.split()[-1]} {loc}"] * v
+        #     )
 
 ny_mesonet_features.columns = [
     col.replace(' ', '_').lower() for col in ny_mesonet_features.columns
@@ -341,10 +347,29 @@ ny_mesonet_features = ny_mesonet_features.drop(
     # 'latitude', 'longitude', 
 )
 
-# uhi_data = pd.read_parquet('./data/train_data.parquet').merge(
+# create a list of hours strings from 15 to 16 every 5 minutes
+hours = [f"{h:02d}:{m:02d}:00" for h in range(15, 16) for m in range(0, 60, 5)] + ['16:00:00']
+
+for place in ['bronx', 'manhattan']:
+    for idx in range(1, len(hours)):
+        ny_mesonet_features[f"diff_wind_influence_{hours[idx]}_{place}"] = ny_mesonet_features[f"wind_influence_{hours[idx]}_{place}"] - ny_mesonet_features[f"wind_influence_{hours[idx-1]}_{place}"]
+        ny_mesonet_features[f"pct_change_wind_influence_{hours[idx]}_{place}"] = ny_mesonet_features[f"wind_influence_{hours[idx]}_{place}"] / ny_mesonet_features[f"wind_influence_{hours[idx-1]}_{place}"] - 1
+
+
+for place in ['bronx', 'manhattan']:
+    for idx in range(1, len(hours)):
+        ny_mesonet_features = ny_mesonet_features.drop(columns=[f"diff_wind_influence_{hours[idx]}_{place}"])
+
+display(ny_mesonet_features)
+# uhi_data = pd.read_parquet('./data/train_data_with_duplicates.parquet')
+# # uhi_data = uhi_data.drop(columns=[col for col in uhi_data.columns if any([v in col for v in ['_x', '_y']])])
+# uhi_data = uhi_data.drop(columns=[col for col in uhi_data.columns if any([col.startswith(v) for v in ny_mesonet_features.columns])])
+# uhi_data = uhi_data.merge(
 #     ny_mesonet_features, right_on=['latitude', 'longitude'], left_on=['Latitude', 'Longitude'],
 #     how='left'
 # )
+# for col in uhi_data.columns:
+#     print(col)
 
 # -----------------------------------------------------------------------------
 # * Joining the predictor variables and response variables
@@ -357,6 +382,8 @@ uhi_data = combine_two_datasets(uhi_data, landsat_features_df[landsat_feature_li
 uhi_data = combine_two_datasets(uhi_data, ny_mesonet_features)
 
 all_features = uhi_data.copy()
+for col in all_features.columns:
+    print(col)
 
 # Remove duplicate rows from the DataFrame based on specified columns and keep the first occurrence
 columns_to_check = ['B01', 'B06', 'NDVI', 'UHI Index', 'B02', 'B03', 'B04', 'B05', 'B07', 'B08', 'B8A', 'B11', 'B12', 'gNDBI']
@@ -393,6 +420,9 @@ print(f"{list(uhi_data.columns)=}")
 
 # columns = json.loads(open('./data/columns.json').read())
 # columns['focal_radius_features'].extend(list(ny_mesonet_features.columns))
+# columns['focal_radius_features'] = list(set(columns['focal_radius_features']))
+# print(json.dumps(columns, indent=2))
+
 # with open('./data/columns.json', 'w') as f:
 #     f.write(json.dumps(columns))
 
