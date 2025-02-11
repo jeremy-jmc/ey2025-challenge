@@ -117,7 +117,10 @@ model = RandomForestRegressor(n_estimators=100, oob_score=True, random_state=SEE
 model.fit(X_train, y_train)
 
 # * OOB Score
-print(f"{model.oob_score_=}")
+try:
+    print(f"{model.oob_score_=}")
+except:
+    pass
 
 # * Make predictions on the training data
 insample_predictions = model.predict(X_train)
