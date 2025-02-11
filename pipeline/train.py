@@ -3,6 +3,8 @@ sys.path.append('..')
 
 from baseline.utilities import *
 
+MODE = 'train_model'  # 'train_model', 'feature_selection'
+
 train_data = pd.read_parquet('./data/train_data.parquet')
 try:
     train_data = train_data.drop(columns=['latitude', 'longitude'])
@@ -39,36 +41,42 @@ y = uhi_data ['UHI Index'].values
 # plt.title("Feature Correlation Matrix")
 # plt.show()
 
-# Apply RFECV
-rfecv = RFECV(estimator=DecisionTreeRegressor(random_state=SEED), cv=KFold(n_splits=5, shuffle=True, random_state=SEED), scoring='r2', n_jobs=-1)
+if MODE == 'feature_selection':
+    rfecv = RFECV(estimator=DecisionTreeRegressor(random_state=SEED), cv=KFold(n_splits=5, shuffle=True, random_state=SEED), scoring='r2', n_jobs=-1)
 
-X_selected = rfecv.fit_transform(X, y)
-# TODO: ValDLaw23 research the computational viability of BorutaRandomForest or another method to select features
-"""
-https://www.kaggle.com/code/residentmario/automated-feature-selection-with-boruta
-https://amueller.github.io/aml/05-advanced-topics/12-feature-selection.html
-"""
+    X_selected = rfecv.fit_transform(X, y)
+    # TODO: ValDLaw23 research the computational viability of BorutaRandomForest or another method to select features
+    """
+    https://www.kaggle.com/code/residentmario/automated-feature-selection-with-boruta
+    https://amueller.github.io/aml/05-advanced-topics/12-feature-selection.html
+    """
 
-print(f"{rfecv.ranking_=}")
-print(f"{rfecv.cv_results_.keys()=}")
+    print(f"{rfecv.ranking_=}")
+    print(f"{rfecv.cv_results_.keys()=}")
 
-plt.figure()
-plt.plot(rfecv.cv_results_['n_features'][2:], rfecv.cv_results_['mean_test_score'][2:], color='blue')
-# plt.xscale('log')
-# plt.yscale('log')
-plt.xlabel('Number of Features Selected')
-plt.ylabel('Cross-Validation Score')
-plt.title('RFECV - Number of Features vs. Cross-Validation Score')
-plt.show()
+    plt.figure()
+    plt.plot(rfecv.cv_results_['n_features'][2:], rfecv.cv_results_['mean_test_score'][2:], color='blue')
+    # plt.xscale('log')
+    # plt.yscale('log')
+    plt.xlabel('Number of Features Selected')
+    plt.ylabel('Cross-Validation Score')
+    plt.title('RFECV - Number of Features vs. Cross-Validation Score')
+    plt.show()
 
-# Print selected features
-selected_features = X.columns[rfecv.support_]
-print(f"Selected features ({len(selected_features)}): {list(selected_features)}")
-with open("selected_features.json", "w") as f:
-    f.write(json.dumps({
-        "selected_features" : list(selected_features)
-    }))
+    # Print selected features
+    selected_features = X.columns[rfecv.support_]
+    print(f"Selected features ({len(selected_features)}): {list(selected_features)}")
+    with open("selected_features.json", "w") as f:
+        f.write(json.dumps({
+            "selected_features" : list(selected_features)
+        }))
 
+    mask_selected_cols = rfecv.support_
+elif MODE == 'train_model':
+    selected_features = json.loads(open("selected_features.json", "r").read())['selected_features']
+    mask_selected_cols = [True if col in selected_features else False for col in X.columns]
+
+print(f"{mask_selected_cols=}")
 
 # -----------------------------------------------------------------------------
 # Train/Test Split
@@ -87,8 +95,8 @@ X_train = sc.fit_transform(X_train)
 X_test = sc.transform(X_test)
 
 # Use selected features
-X_train = X_train[:, rfecv.support_]
-X_test = X_test[:, rfecv.support_]
+X_train = X_train[:, mask_selected_cols]
+X_test = X_test[:, mask_selected_cols]
 
 # * Save the scaler
 scaler_path = './models/scaler.pkl'
@@ -101,8 +109,11 @@ with open(scaler_path, 'wb') as scaler_file:
 
 # * Train the Random Forest model on the training data
 # TODO: @ValDLaw23 try boosting methods and another models like XGBoost, LightGBM, CatBoost, GradientBoosting, HistGradientBoosting, etc
+print("Training model")
 model = RandomForestRegressor(n_estimators=100, oob_score=True, random_state=SEED)
-# model = lgb.LGBMRegressor(n_estimators=100, boosting_type='rf', random_state=SEED, bagging_freq=1, bagging_fraction=0.8)
+# model = LGBMRegressor(n_estimators=100, boosting_type='rf', random_state=SEED, bagging_freq=1, bagging_fraction=0.8)
+# model = XGBRegressor(n_estimators=100, grow_policy='lossguide', verbosity=3, random_state=SEED)
+# model = GradientBoostingRegressor(n_estimators=100, loss='squared_error', random_state=SEED)
 model.fit(X_train, y_train)
 
 # * OOB Score
