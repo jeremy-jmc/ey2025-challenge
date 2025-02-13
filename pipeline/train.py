@@ -25,11 +25,10 @@ print(f"({len(feature_list)}) -> {feature_list=}")
 
 # Retaining only the columns for B01, B06, NDVI, and UHI Index in the dataset.
 print(f"{train_data.shape=}")
-uhi_data = train_data[feature_list + ['UHI Index']]
+uhi_data = train_data[['B01', 'B06', 'B8A', 'NDVI', 'UHI Index', 'B02', 'B03', 'B04', 'B05', 'B07', 'B08',  'B11', 'B12', 'gNDBI'] + feature_list]
 for col in uhi_data.columns:
     print(col)
 
-# [['B01', 'B06', 'B8A', 'NDVI', 'UHI Index', 'B02', 'B03', 'B04', 'B05', 'B07', 'B08',  'B11', 'B12', 'gNDBI'] + feature_list]
 # .drop(columns=['Longitude', 'Latitude', 'datetime'])
 print(f"{uhi_data.shape=}")
 
@@ -77,7 +76,7 @@ if MODE == 'feature_selection':
     with open("selected_features.json", "w") as f:
         f.write(json.dumps({
             "selected_features" : list(selected_features)
-        }))
+        }, indent=4))
 
     mask_selected_cols = rfecv.support_
 elif MODE == 'train_model':

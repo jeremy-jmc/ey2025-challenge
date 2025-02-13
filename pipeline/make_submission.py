@@ -10,12 +10,12 @@ from baseline.utilities import *
 
 ''' SUBMISSION '''
 # * Reading the coordinates for the submission
-test_file = pd.read_parquet('./data/submission_data.parquet')
+test_file = pd.read_parquet('./data/processed/submission/submission_data.parquet')
 # test_file = test_file[[col for col in test_file.columns if 'diff_wind_influence_' not in col]]
 # for col in test_file:
 #     print(col)
 
-train_cols = pd.read_parquet('./data/train_data.parquet').columns
+train_cols = pd.read_parquet('./data/processed/train/train_data.parquet').columns
 submission_cols = test_file.columns
 print(set.difference(set(train_cols), set(submission_cols)))
 print(set.difference(set(submission_cols), set(train_cols)))
