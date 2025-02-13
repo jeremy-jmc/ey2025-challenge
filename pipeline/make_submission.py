@@ -42,7 +42,10 @@ transformed_submission_data = (
 
 # * Load Model
 model = joblib.load('./models/random_forest_model.pkl')
-print(model.oob_score_)
+try:
+    print(f"{model.oob_score_=}")
+except:
+    pass
 
 # Making predictions
 final_predictions = model.predict(transformed_submission_data)
