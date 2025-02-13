@@ -3,21 +3,21 @@ sys.path.append('..')
 
 from baseline.utilities import *
 
-MODE = 'train_model'  # 'train_model', 'feature_selection'
+MODE = 'feature_selection'  # 'train_model', 'feature_selection'
 
-train_data = pd.read_parquet('./data/train_data.parquet')
+train_data = pd.read_parquet('./data/processed/train/train_data.parquet')
+
 try:
+    train_data = train_data.drop(columns=['Latitude', 'Longitude'])
+    train_data = train_data.drop(columns=['datetime'])
     train_data = train_data.drop(columns=['latitude', 'longitude'])
 except:
     pass
 
-for col in train_data.columns:
-    print(col)
-
 column_dict = json.loads(open('./data/columns.json').read())
 
-buffer_radius_features = [col for col in column_dict['focal_radius_features']]  #  if 'diff_wind_influence_' not in col
-print(f"({len(buffer_radius_features)}) -> {buffer_radius_features=}")
+feature_list = [col for col in column_dict['features']]
+print(f"({len(feature_list)}) -> {feature_list=}")
 
 # -----------------------------------------------------------------------------
 # Feature selection
@@ -25,7 +25,11 @@ print(f"({len(buffer_radius_features)}) -> {buffer_radius_features=}")
 
 # Retaining only the columns for B01, B06, NDVI, and UHI Index in the dataset.
 print(f"{train_data.shape=}")
-uhi_data = train_data[['B01', 'B06', 'B8A', 'NDVI', 'UHI Index', 'B02', 'B03', 'B04', 'B05', 'B07', 'B08',  'B11', 'B12', 'gNDBI'] + buffer_radius_features]
+uhi_data = train_data[feature_list + ['UHI Index']]
+for col in uhi_data.columns:
+    print(col)
+
+# [['B01', 'B06', 'B8A', 'NDVI', 'UHI Index', 'B02', 'B03', 'B04', 'B05', 'B07', 'B08',  'B11', 'B12', 'gNDBI'] + feature_list]
 # .drop(columns=['Longitude', 'Latitude', 'datetime'])
 print(f"{uhi_data.shape=}")
 
@@ -49,11 +53,15 @@ if MODE == 'feature_selection':
     """
     https://www.kaggle.com/code/residentmario/automated-feature-selection-with-boruta
     https://amueller.github.io/aml/05-advanced-topics/12-feature-selection.html
+
+    https://www.kaggle.com/code/attackgnome/basic-feature-benchmark-rfecv-xgboost
+    https://gist.github.com/Tejas-Deo/fb193565ffcaba4e5ee1b5d5a0852e66
     """
 
     print(f"{rfecv.ranking_=}")
     print(f"{rfecv.cv_results_.keys()=}")
 
+    # TODO: plot RFECV with error bar. Source: https://scikit-learn.org/stable/auto_examples/feature_selection/plot_rfe_with_cross_validation.html#sphx-glr-auto-examples-feature-selection-plot-rfe-with-cross-validation-py
     plt.figure()
     plt.plot(rfecv.cv_results_['n_features'][2:], rfecv.cv_results_['mean_test_score'][2:], color='blue')
     # plt.xscale('log')
@@ -94,9 +102,20 @@ sc = StandardScaler() # MinMaxScaler()
 X_train = sc.fit_transform(X_train)
 X_test = sc.transform(X_test)
 
-# Use selected features
+# * Use selected features
 X_train = X_train[:, mask_selected_cols]
 X_test = X_test[:, mask_selected_cols]
+
+# * Correlation matrix of selected features
+corr_matrix = pd.DataFrame(X_train, columns=selected_features).corrwith(pd.Series(y_train, name='UHI Index'))
+plt.figure()
+sns.heatmap(corr_matrix.to_frame(), annot=True, cmap="coolwarm", fmt=".2f")
+plt.title("Correlation Matrix between Features and Target (UHI Index)")
+plt.show()
+
+# * Save the X_train and X_test
+np.save('./data/X_train.npy', X_train)
+np.save('./data/X_test.npy', X_test)
 
 # * Save the scaler
 scaler_path = './models/scaler.pkl'
@@ -180,13 +199,32 @@ plt.show()
 # -----------------------------------------------------------------------------
 
 # TODO: @ValDLaw23 research how to plot FE using the data proportioned by the model and then, with SHAP Python library
+# https://scikit-learn.org/stable/auto_examples/ensemble/plot_forest_importances.html
+
+if hasattr(model, 'feature_importances_'):  # isinstance(model, RandomForestRegressor)
+    feature_names = selected_features
+    importances = model.feature_importances_
+    std = np.std([tree.feature_importances_ for tree in model.estimators_], axis=0)
+
+    forest_importances = pd.Series(importances, index=feature_names)
+
+    fig, ax = plt.subplots(figsize=(8, 8))
+    forest_importances.plot.bar(yerr=std, ax=ax)
+    ax.set_title("Feature importances using MDI (Mean Decrease in Impurity)")
+    ax.set_ylabel("Mean decrease in impurity")
+    fig.tight_layout()
+    plt.show()
+
+# -----------------------------------------------------------------------------
+# Model Decision Path
+# -----------------------------------------------------------------------------
+
+(node_indicator, n_nodes_ptr) = model.decision_path(X_train[[0]])
+print(f"{node_indicator.shape=}")
+print(f"{n_nodes_ptr.shape=}")
 
 """
-https://shap.readthedocs.io/en/latest/example_notebooks/overviews/An%20introduction%20to%20explainable%20AI%20with%20Shapley%20values.html
-https://mljar.com/blog/feature-importance-in-random-forest/
-https://github.com/search?type=code&q=%22RandomForestRegressor%28%22+AND+%22importance%22+language%3APython
-https://github.com/search?type=code&q=%22RandomForestRegressor%28%22+AND+%22shap%22+language%3APython
+https://stackoverflow.com/questions/48869343/decision-path-for-a-random-forest-classifier
 """
-    
-# TODO: Research if exists a way to "explain the decision path of random forest with LLMs"
+
 # !python3.10 -m pip install pyarrow fastparquet
