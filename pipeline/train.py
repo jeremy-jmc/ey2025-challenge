@@ -3,7 +3,7 @@ sys.path.append('..')
 
 from baseline.utilities import *
 
-MODE = 'feature_selection'  # 'train_model', 'feature_selection'
+MODE = 'train_model'  # 'train_model', 'feature_selection'
 
 train_data = pd.read_parquet('./data/processed/train/train_data.parquet')
 
@@ -45,6 +45,11 @@ y = uhi_data ['UHI Index'].values
 # plt.show()
 
 if MODE == 'feature_selection':
+    # ! DecisionTreeRegressor is sensitive to feature order
+    """
+    https://stackoverflow.com/questions/43941163/does-feature-order-impact-decision-tree-algorithm-in-sklearn
+    https://github.com/scikit-learn/scikit-learn/issues/5394
+    """
     rfecv = RFECV(estimator=DecisionTreeRegressor(random_state=SEED), cv=KFold(n_splits=5, shuffle=True, random_state=SEED), scoring='r2', n_jobs=-1)
 
     X_selected = rfecv.fit_transform(X, y)
