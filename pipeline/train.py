@@ -110,11 +110,53 @@ with open(scaler_path, 'wb') as scaler_file:
 # * Train the Random Forest model on the training data
 # TODO: @ValDLaw23 try boosting methods and another models like XGBoost, LightGBM, CatBoost, GradientBoosting, HistGradientBoosting, etc
 print("Training model")
-model = RandomForestRegressor(n_estimators=100, oob_score=True, random_state=SEED)
-# model = LGBMRegressor(n_estimators=100, boosting_type='rf', random_state=SEED, bagging_freq=1, bagging_fraction=0.8)
-# model = XGBRegressor(n_estimators=100, grow_policy='lossguide', verbosity=3, random_state=SEED)
-# model = GradientBoostingRegressor(n_estimators=100, loss='squared_error', random_state=SEED)
-model.fit(X_train, y_train)
+model = RandomForestRegressor(oob_score=True, random_state=SEED)
+# model = LGBMRegressor(boosting_type='rf', random_state=SEED)
+# model = XGBRegressor(grow_policy='lossguide', verbosity=3, random_state=SEED)
+# model = GradientBoostingRegressor(loss='squared_error', random_state=SEED)
+# model.fit(X_train, y_train)
+
+# param_grid = {
+#     'n_estimators': [50, 100, 200],
+#     'learning_rate': [0.01, 0.1, 0.2],
+#     'max_depth': [3, 5, 7],
+#     'subsample': [0.8, 1.0],
+# }
+
+param_grid = {
+    'n_estimators': [50, 100, 200],
+    'max_depth': [None, 10, 20],
+    'min_samples_split': [2, 5, 10],
+    'min_samples_leaf': [1, 2, 4],
+    'max_features': ['auto', 'sqrt'],
+}
+
+grid_search = GridSearchCV(
+    estimator=RandomForestRegressor(oob_score=True, random_state=SEED),
+    param_grid=param_grid,
+    cv=5,  # 5-fold cross-validation
+    scoring='r2',  # Optimize for R² score
+    n_jobs=-1,  # Use all available CPU cores
+    verbose=2  # Show progress
+)
+
+# grid_search = GridSearchCV(
+#     estimator=model, 
+#     param_grid=param_grid, 
+#     cv=5, 
+#     scoring='r2', 
+#     n_jobs=-1,
+#     verbose=2
+# )
+
+# Fit Grid Search on training data
+grid_search.fit(X_train, y_train)
+
+print(f"Best parameters: {grid_search.best_params_}")
+print(f"Best R² score: {grid_search.best_score_:.4f}")
+
+# Train final model with the best parameters
+model = grid_search.best_estimator_
 
 # * OOB Score
 try:
