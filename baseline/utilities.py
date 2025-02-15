@@ -50,9 +50,11 @@ from lightgbm import LGBMRegressor
 from xgboost import XGBRegressor
 
 # Machine Learning
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, HistGradientBoostingRegressor
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import GradientBoostingRegressor
+from lightgbm import LGBMRegressor
+from xgboost import XGBRegressor
 
 # import lightgbm as lgb
 from sklearn.metrics import r2_score
@@ -213,7 +215,7 @@ def compute_geographic_bounding_boxes(df, meters):
     
     transformer = Transformer.from_crs("EPSG:3395", "EPSG:4326", always_xy=True)
     bbox_columns = []
-    for m in meters:
+    for m in tqdm(meters, desc="Computing bounding boxes", total=len(meters)):
         gdf[f'buffer_{m}m'] = gdf.apply(lambda x: buffer_meters(x, m), axis=1)
 
         # Calculate in EPSG:3395
