@@ -73,12 +73,12 @@ print(sentinel2_bands_df.std())
 os.makedirs(f'../data/processed/{MODE}', exist_ok=True)
 sentinel2_bands_df.to_parquet(f'../data/processed/{MODE}/sentinel2_bands.parquet')
 
-# Update column groups
-column_groups = json.loads(open("../data/column_groups.json").read())
+# # Update column groups
+# column_groups = json.loads(open("../data/column_groups.json").read())
 
-column_groups['sentinel2_bands'] = [col for col in sentinel2_bands_df.columns if col not in sentinel_2_indices]
-column_groups['sentinel2_band_indices'] = sentinel_2_indices
+# column_groups['sentinel2_bands'] = [col for col in sentinel2_bands_df.columns if col not in sentinel_2_indices]
+# column_groups['sentinel2_band_indices'] = sentinel_2_indices
 
-with open('../data/column_groups.json', 'w') as f:
-    f.write(json.dumps(column_groups, indent=4))
+# with open('../data/column_groups.json', 'w') as f:
+#     f.write(json.dumps(column_groups, indent=4))
 

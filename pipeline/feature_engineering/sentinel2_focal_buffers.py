@@ -42,6 +42,7 @@ for r in radius_list:
     sentinel_features_df[f'sntnl_buffer_{r}m_selection'] = sentinel_features_df[f'buffer_{r}m_bbox_4326'].parallel_apply(
         lambda bbox: get_bbox_selection(SENTINEL_TIFF_PATH, bbox)
     )
+    sentinel_features_df = sentinel_features_df.drop(columns=[f'buffer_{r}m_bbox_4326'])
 
 sentinel_focal_radius_ft = []
 
@@ -74,12 +75,15 @@ for r in tqdm(radius_list, total=len(radius_list), desc='Sentinel-2 NDVI/Vegetat
     sentinel_features_df[f'sntnl_mean_ndvi_{r}m'] = sentinel_features_df[f'sntnl_ndvi_{r}m'].parallel_apply(
         lambda ndvi: np.nanmean(ndvi)
     )
-
+    # TODO: extract the STD of the NDVI patch values
+    
     sentinel_features_df[f'sntnl_vegetation_ratio_ndvi_{r}m'] = sentinel_features_df[f'sntnl_ndvi_{r}m'].parallel_apply(
         lambda ndvi: get_vegetation_ratio(ndvi)
     )
 
     sentinel_focal_radius_ft.extend([f'sntnl_mean_ndvi_{r}m', f'sntnl_vegetation_ratio_ndvi_{r}m'])
+
+    sentinel_features_df = sentinel_features_df.drop(columns=[f'sntnl_buffer_{r}m_selection', f'sntnl_ndvi_{r}m'])
 
 display(sentinel_features_df[sentinel_focal_radius_ft].head())
 
@@ -94,3 +98,7 @@ column_groups['sentinel2_focal_buffer_features'] = sentinel_focal_radius_ft
 with open('../data/column_groups.json', 'w') as f:
     f.write(json.dumps(column_groups, indent=4))
 
+"""
+https://www.uber.com/en-BR/blog/deepeta-how-uber-predicts-arrival-times/
+    https://arxiv.org/pdf/2206.02127
+"""

@@ -32,7 +32,7 @@ ny_mesonet_features_df = pd.read_parquet(f'../data/processed/{MODE}/ny_mesonet_f
 uhi_data = combine_two_datasets(ground_df,sentinel_bands_df)
 uhi_data = combine_two_datasets(uhi_data, sentinel_features_df)
 uhi_data = combine_two_datasets(uhi_data, landsat_features_df)
-uhi_data = combine_two_datasets(uhi_data, ny_mesonet_features_df)
+# uhi_data = combine_two_datasets(uhi_data, ny_mesonet_features_df)
 
 all_features = uhi_data.copy()
 for col in all_features.columns:

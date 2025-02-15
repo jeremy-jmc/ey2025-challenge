@@ -36,3 +36,6 @@ with open('../data/radius_list.json', 'w') as f:
     f.write(json.dumps({"radius_list": radius_list}, indent=4))
 
 bbox_dataset.to_parquet(f'../data/processed/{MODE}/bbox_dataset.parquet')
+
+with open('../data/column_groups.json', 'w') as f:
+    f.write(json.dumps({}, indent=4))
