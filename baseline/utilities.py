@@ -65,6 +65,7 @@ import planetary_computer as pc
 from pystac.extensions.eo import EOExtension as eo
 
 # Others
+import copy
 import os
 import json
 import joblib

@@ -59,4 +59,4 @@ submission_df = pd.DataFrame({
 })
 
 # Dumping the predictions into a csv file.
-submission_df.to_csv("../submissions/RF_0,9557_CV10_13FT_0,2Test_fix_computation_pct_change.csv", index=False)
+submission_df.to_csv("../submissions/RF_0,9629_CV10_29FT_0,15remove_bands_radius_add_index_radius_remove_nymesonet_GridSearchCV.csv", index=False)
