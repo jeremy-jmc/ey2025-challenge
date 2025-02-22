@@ -22,6 +22,16 @@ else:
 # `lower_left` and `upper_right` variables of the "Sentinel2_GeoTIFF" notebook
 display(ground_df[['Longitude', 'Latitude']].describe())
 
+# -----------------------------------------------------------------------------
+# Data Visualization: Save dataset as GeoDataFrame
+# -----------------------------------------------------------------------------
+
+gdf = gpd.GeoDataFrame(
+    ground_df, geometry=gpd.points_from_xy(ground_df['Longitude'], ground_df['Latitude']),
+    crs='EPSG:4326' # Latitude-Longitude -> https://spatialreference.org/ref/epsg/4326/
+)
+gdf.to_file(f"../data/processed/{MODE}/ground_dataset.json", driver='GeoJSON')
+print(gdf.shape)
 
 # -----------------------------------------------------------------------------
 # Data Preprocessing: Generate geographic bounding boxes around the coordinates

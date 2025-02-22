@@ -20,9 +20,18 @@ else:
     raise ValueError("MODE should be either 'train' or 'submission")
 
 sentinel_bands_df = pd.read_parquet(f'../data/processed/{MODE}/sentinel2_bands.parquet')
+print(f"{sentinel_bands_df.columns=}")
 sentinel_features_df = pd.read_parquet(f'../data/processed/{MODE}/sentinel2_focal_buffers.parquet')
+print(f"{sentinel_features_df.columns=}")
+sentinel_features_bands_df = pd.read_parquet(f'../data/processed/{MODE}/sentinel2_focal_buffers_bands.parquet')
+print(f"{sentinel_features_bands_df.columns=}")
 landsat_features_df = pd.read_parquet(f'../data/processed/{MODE}/landsat.parquet')
-ny_mesonet_features_df = pd.read_parquet(f'../data/processed/{MODE}/ny_mesonet_features.parquet')
+print(f"{landsat_features_df.columns=}")
+
+if MODE == 'train':
+    cluster_df = pd.read_parquet(f'../data/processed/{MODE}/cluster.parquet')
+# ny_mesonet_features_df = pd.read_parquet(f'../data/processed/{MODE}/ny_mesonet_features.parquet')
+# print(f"{ny_mesonet_features_df.columns=}")
 
 # -----------------------------------------------------------------------------
 # * Joining the predictor variables and response variables
@@ -32,6 +41,9 @@ ny_mesonet_features_df = pd.read_parquet(f'../data/processed/{MODE}/ny_mesonet_f
 uhi_data = combine_two_datasets(ground_df,sentinel_bands_df)
 uhi_data = combine_two_datasets(uhi_data, sentinel_features_df)
 uhi_data = combine_two_datasets(uhi_data, landsat_features_df)
+uhi_data = combine_two_datasets(uhi_data, sentinel_features_bands_df)
+if MODE == 'train':
+    uhi_data = combine_two_datasets(uhi_data, cluster_df)
 # uhi_data = combine_two_datasets(uhi_data, ny_mesonet_features_df)
 
 all_features = uhi_data.copy()
@@ -39,7 +51,9 @@ for col in all_features.columns:
     print(col)
 
 # Remove duplicate rows from the DataFrame based on specified columns and keep the first occurrence
-columns_to_check = ['B01', 'B06', 'NDVI', 'UHI Index', 'B02', 'B03', 'B04', 'B05', 'B07', 'B08', 'B8A', 'B11', 'B12', 'gNDBI']
+columns_to_check = \
+    ['B01', 'B06', 'UHI Index', 'B02', 'B03', 'B04', 'B05', 'B07', 'B08', 'B8A', 'B11', 'B12'] + \
+    ['NDVI', 'gNDBI', 'UI', 'NDBI', 'NBI', 'BRBA', 'NBAI', 'MBI', 'BAEI', 'gCI']
 
 for col in columns_to_check:
     # Check if the value is a numpy array and has more than one dimension
@@ -52,6 +66,7 @@ if MODE == 'train':
 
 # Resetting the index of the dataset
 uhi_data = uhi_data.reset_index(drop=True)
+print(f"{uhi_data.shape=}")
 print(uhi_data.isna().sum())
 
 # Saving the dataset to a parquet file
@@ -73,3 +88,5 @@ with open('../data/columns.json', 'w') as f:
 
 print(f"{list(uhi_data.columns)=}")
 
+
+# ls -lhR --block-size=M ./data/processed
