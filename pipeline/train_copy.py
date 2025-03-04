@@ -7,19 +7,16 @@ from baseline.utilities import *
 {
     "selected_features": [
         "sntnl_buffer_band_7_350_std",
-        "sntnl_buffer_band_10_350_std",
         "sntnl_mean_ndvi_350m",
-        "lndst_mean_lwir11_150m",
         "lndst_mean_lwir11_275m",
         "lndst_std_lwir11_350m",
-        "wind_influence_15:40:00_manhattan",
-        "pct_change_wind_influence_15:05:00_bronx",
-        "pct_change_wind_influence_15:15:00_bronx",
-        "pct_change_wind_influence_15:20:00_bronx",
-        "pct_change_wind_influence_15:05:00_manhattan",
-        "pct_change_wind_influence_15:25:00_manhattan",
-        "pct_change_wind_influence_15:40:00_manhattan"
-        ]
+        "wind_influence_154000_manhattan",
+        "pct_change_wind_influence_151500_bronx",
+        "pct_change_wind_influence_152000_bronx",
+        "pct_change_wind_influence_153500_bronx",
+        "pct_change_wind_influence_150500_manhattan",
+        "pct_change_wind_influence_154000_manhattan"
+    ]
 }
 '''
 MODE = 'train_model'  # 'train_model', 'feature_selection'
@@ -72,9 +69,9 @@ if MODE == 'feature_selection':
     https://stackoverflow.com/questions/43941163/does-feature-order-impact-decision-tree-algorithm-in-sklearn
     https://github.com/scikit-learn/scikit-learn/issues/5394
     """
-    # rfecv = RFECV(estimator=DecisionTreeRegressor(random_state=SEED), cv=KFold(n_splits=5, shuffle=True, random_state=SEED), scoring='r2', n_jobs=-1)
+    rfecv = RFECV(estimator=DecisionTreeRegressor(random_state=SEED), cv=KFold(n_splits=5, shuffle=True, random_state=SEED), scoring='r2', n_jobs=-1)
 
-    # X_selected = rfecv.fit_transform(X, y)
+    X_selected = rfecv.fit_transform(X, y)
     # TODO: ValDLaw23 research the computational viability of BorutaRandomForest or another method to select features
     """
     https://www.kaggle.com/code/residentmario/automated-feature-selection-with-boruta
@@ -84,15 +81,16 @@ if MODE == 'feature_selection':
     https://gist.github.com/Tejas-Deo/fb193565ffcaba4e5ee1b5d5a0852e66
     """
 
-    # print(f"{rfecv.ranking_=}")
-    # print(f"{rfecv.cv_results_.keys()=}")
+    print(f"{rfecv.ranking_=}")
+    print(f"{rfecv.cv_results_.keys()=}")
 
     # TODO: plot RFECV with error bar. Source: https://scikit-learn.org/stable/auto_examples/feature_selection/plot_rfe_with_cross_validation.html#sphx-glr-auto-examples-feature-selection-plot-rfe-with-cross-validation-py
-    '''
+    
     plt.figure()
-    plt.plot(rfecv.cv_results_['n_features'][2:], rfecv.cv_results_['mean_test_score'][2:], color='blue')
+    # plt.plot(rfecv.cv_results_['n_features'][2:], rfecv.cv_results_['mean_test_score'][2:], color='blue')
     # plt.xscale('log')
     # plt.yscale('log')
+    plt.plot(range(1, len(rfecv.cv_results_['mean_test_score']) + 1), rfecv.cv_results_['mean_test_score'], color='blue')
     plt.xlabel('Number of Features Selected')
     plt.ylabel('Cross-Validation Score')
     plt.title('RFECV - Number of Features vs. Cross-Validation Score')
@@ -107,63 +105,10 @@ if MODE == 'feature_selection':
         }, indent=4))
 
     mask_selected_cols = rfecv.support_
-    '''
     
-    sample_frac = 0.3
-    train_sample = train_data.sample(frac=0.3, random_state=42)
-    
-    feature_counts = Counter()
-
-    # Lista inicial de características base
-    selected_features = [] # ['B01', 'B06', 'B8A', 'NDVI', 'B02', 'B03', 'B04', 'B05', 'B07', 'B08',  'B11', 'B12', 'gNDBI']
-
-    # Dividir las features en grupos de 15 automáticamente
-    chunk_size = 15
-    feature_groups = [feature_list[i:i + chunk_size] for i in range(0, len(feature_list), chunk_size)]
-
-    print(f"Se han creado {len(feature_groups)} grupos de características.")
-
-    all_selected_features = []
-
-    # Iterar sobre los grupos y evaluar
-    for i, group in enumerate(feature_groups):
-        print(f"\n🔹 Procesando grupo {i+1}/{len(feature_groups)}...")
-
-        # Añadir nuevas features evitando duplicados
-        selected_features = list(set(group))
-        
-        X_iter = train_sample[selected_features + ['UHI Index']]
-
-        # Configurar PyCaret con selección estricta de características
-        print("⚙️  Iniciando PyCaret...")
-        exp = setup(data=X_iter, target='UHI Index', session_id=123, 
-                    feature_selection=True,  # Activar selección de características
-                    feature_selection_method='sequential',  # Método Boruta, puede ser muy eficaz con Random Forest
-                    n_features_to_select=10,  # Seleccionar solo las 10 características más importantes
-                    normalize=True,  # Normalización de las características
-                    verbose=False)
-
-        # Obtener las mejores features de esta iteración
-        top_features = get_config('X_train').columns.tolist()
-        print(f"✅ Mejores features de esta iteración: {top_features}")
-        
-        # Registrar las características seleccionadas de esta iteración
-        all_selected_features.extend(top_features)
-
-    print(f"🔢 Total de features seleccionadas en total: {len(all_selected_features)}")
-
-    # Guardar las mejores características seleccionadas
-    with open("final_selected_features.json", "w") as f:
-        json.dump({"selected_features": final_selected_features}, f, indent=4)
-
-    print("\n🚀 Proceso completado.")
-    print(f"🏆 Las mejores features seleccionadas son: {final_selected_features}")
-    print(f"🔢 Total de features seleccionadas: {len(final_selected_features)}")
-
-
     
 elif MODE == 'train_model':
-    selected_features = json.loads(open("final_selected_features.json", "r").read())['selected_features']
+    selected_features = json.loads(open("selected_features.json", "r").read())['selected_features']
     mask_selected_cols = [True if col in selected_features else False for col in X.columns]
 
 print(f"{mask_selected_cols=}")
@@ -180,7 +125,7 @@ print(f"{X_train.shape}")
 
 # TODO: @ValDLaw23 check if the scaling affects the training
 # Scale the training and test data using standardscaler
-sc = StandardScaler() # MinMaxScaler()
+sc = RobustScaler() # MinMaxScaler()
 X_train = sc.fit_transform(X_train)
 X_test = sc.transform(X_test)
 
@@ -212,17 +157,9 @@ with open(scaler_path, 'wb') as scaler_file:
 # TODO: @ValDLaw23 try boosting methods and another models like XGBoost, LightGBM, CatBoost, GradientBoosting, HistGradientBoosting, etc
 print("Training model")
 model = RandomForestRegressor(oob_score=True, random_state=SEED)
-# model = LGBMRegressor(boosting_type='rf', random_state=SEED)
 # model = XGBRegressor(grow_policy='lossguide', verbosity=3, random_state=SEED)
 # model = GradientBoostingRegressor(loss='squared_error', random_state=SEED)
 # model.fit(X_train, y_train)
-
-# param_grid = {
-#     'n_estimators': [50, 100, 200],
-#     'learning_rate': [0.01, 0.1, 0.2],
-#     'max_depth': [3, 5, 7],
-#     'subsample': [0.8, 1.0],
-# }
 
 param_grid = {
     'n_estimators': [50, 100, 200],
@@ -240,15 +177,6 @@ grid_search = GridSearchCV(
     n_jobs=-1,  # Use all available CPU cores
     verbose=2  # Show progress
 )
-
-# grid_search = GridSearchCV(
-#     estimator=model, 
-#     param_grid=param_grid, 
-#     cv=5, 
-#     scoring='r2', 
-#     n_jobs=-1,
-#     verbose=2
-# )
 
 # Fit Grid Search on training data
 grid_search.fit(X_train, y_train)
