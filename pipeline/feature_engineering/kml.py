@@ -96,6 +96,11 @@ bv.to_file('../data/other/bv.json', driver='GeoJSON')
 
 bv = bv[['CONSTRUCTION_YEAR', 'FEATURE_CODE', 'GROUND_ELEVATION', 'HEIGHT_ROOF', 'LAST_EDITED_DATE', 'LAST_STATUS_TYPE', 'geometry', 'area', 'Area', 'Length']]
 
+bv = bv.loc[bv['CONSTRUCTION_YEAR'] < 2021].reset_index(drop=True)     # ! Check consistency of results
+
+# ? Length variable is the perimeter?
+# TODO: Filter all polygons/geometries than intersects with any of the bld_footprint geometries
+
 # -----------------------------------------------------------------------------
 # * Point and Radius/Buffer Queries
 # -----------------------------------------------------------------------------
@@ -106,7 +111,8 @@ train_data.columns = train_data.columns.str.lower()
 dataset = train_data[['longitude', 'latitude']]
 dataset['geometry'] = gpd.points_from_xy(dataset['longitude'], dataset['latitude'])
 
-geodataset = gpd.GeoDataFrame(dataset.sample(10, ignore_index=True), crs='EPSG:4326')     # , random_state=42
+# ! TODO: Remove the .sample
+geodataset = gpd.GeoDataFrame(dataset.sample(200, ignore_index=True), crs='EPSG:4326')     # , random_state=42
 
 radius_list = [25] + json.loads(open('../data/radius_list.json', 'r').read())['radius_list']
 
@@ -119,19 +125,24 @@ for radius_meter in tqdm(radius_list, total=len(radius_list), desc='Radius Areas
         .to_crs(epsg=4326)
     )
 
-    intersecting = gpd.sjoin(bld_footprint, 
+    # * EY .kml file Building Footprints
+    intersecting_squares = gpd.sjoin(bld_footprint, 
                             gpd.GeoDataFrame(geometry=geodataset[f'buffer_{radius_meter}m'], crs=bld_footprint.crs), 
                             predicate="intersects",
                             how='inner'
                             ).drop_duplicates(subset=['index_right', 'geometry'])
 
-    area_sums = intersecting.groupby('index_right')['area'].sum()
+    area_sums = intersecting_squares.groupby('index_right')['area'].sum()
     # TODO: mean and std of areas inside the buffer
 
     geodataset[f"sum_areas_{radius_meter}m"] = geodataset.index.map(area_sums).fillna(0)
     
+    # * NYC Buildings
+    
     # TODO: Linear combination of area and height of buildings inside the buffer with `bv` variable
     
+
+
     geodataset = geodataset.drop(columns=[f'buffer_{radius_meter}m'])
     display(geodataset)
 
@@ -149,3 +160,25 @@ TODO ValDLaw:
         Answer the following question creating a new feature as a column: 
             What is the area of buildings within a 250m radius of the point? Extrapolate to multiple radius values
 """
+
+radius_meter = 50
+
+geodataset = geodataset.to_crs(epsg=3395)
+
+geodataset[f'buffer_{radius_meter}m'] = (
+    geodataset.apply(lambda x: buffer_meters(x, radius_meter), axis=1)
+    .set_crs(3395)
+    .to_crs(epsg=4326)
+)
+
+intersecting_buildings = gpd.sjoin(bv[['Area', 'Length', 'geometry', 'GROUND_ELEVATION', 'HEIGHT_ROOF']], 
+    gpd.GeoDataFrame(geometry=geodataset[f'buffer_{radius_meter}m'], crs=bv.crs), 
+    predicate="intersects",
+    how='inner'
+    ).drop_duplicates(subset=['index_right', 'geometry'])
+
+display(intersecting_buildings)
+
+geodataset = geodataset.to_crs(epsg=4326)
+
+
