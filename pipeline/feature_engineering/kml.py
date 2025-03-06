@@ -96,7 +96,6 @@ bv.to_file('../data/other/bv.json', driver='GeoJSON')
 
 bv = bv[['CONSTRUCTION_YEAR', 'FEATURE_CODE', 'GROUND_ELEVATION', 'HEIGHT_ROOF', 'LAST_EDITED_DATE', 'LAST_STATUS_TYPE', 'geometry', 'area', 'Area', 'Length']]
 
-
 # -----------------------------------------------------------------------------
 # * Point and Radius/Buffer Queries
 # -----------------------------------------------------------------------------
@@ -109,34 +108,36 @@ dataset['geometry'] = gpd.points_from_xy(dataset['longitude'], dataset['latitude
 
 geodataset = gpd.GeoDataFrame(dataset.sample(10, ignore_index=True), crs='EPSG:4326')     # , random_state=42
 
-radius_meter = 50
+radius_list = [25] + json.loads(open('../data/radius_list.json', 'r').read())['radius_list']
 
-geodataset = geodataset.to_crs(epsg=3395)
-geodataset[f'buffer_{radius_meter}m'] = geodataset.apply(lambda x: buffer_meters(x, radius_meter), axis=1)
-# display(geodataset[f'buffer_{radius_meter}m'].iloc[0])
+for radius_meter in tqdm(radius_list, total=len(radius_list), desc='Radius Areas'):
+    geodataset = geodataset.to_crs(epsg=3395)
 
-geodataset[f'buffer_{radius_meter}m'] = geodataset[f'buffer_{radius_meter}m'].set_crs(3395).to_crs(epsg=4326)
-# display(geodataset[f'buffer_{radius_meter}m'].iloc[0])
+    geodataset[f'buffer_{radius_meter}m'] = (
+        geodataset.apply(lambda x: buffer_meters(x, radius_meter), axis=1)
+        .set_crs(3395)
+        .to_crs(epsg=4326)
+    )
+
+    intersecting = gpd.sjoin(bld_footprint, 
+                            gpd.GeoDataFrame(geometry=geodataset[f'buffer_{radius_meter}m'], crs=bld_footprint.crs), 
+                            predicate="intersects",
+                            how='inner'
+                            ).drop_duplicates(subset=['index_right', 'geometry'])
+
+    area_sums = intersecting.groupby('index_right')['area'].sum()
+    # TODO: mean and std of areas inside the buffer
+
+    geodataset[f"sum_areas_{radius_meter}m"] = geodataset.index.map(area_sums).fillna(0)
+    
+    # TODO: Linear combination of area and height of buildings inside the buffer with `bv` variable
+    
+    geodataset = geodataset.drop(columns=[f'buffer_{radius_meter}m'])
+    display(geodataset)
 
 geodataset = geodataset.to_crs(epsg=4326)
 
 display(geodataset)
-display(bld_footprint)
-print(bld_footprint.crs)
-print(geodataset.crs)
-
-intersecting = gpd.sjoin(bld_footprint, 
-                         gpd.GeoDataFrame(geometry=geodataset[f'buffer_{radius_meter}m'], crs=bld_footprint.crs), 
-                         predicate="intersects",
-                         how='inner'
-                         ).drop_duplicates(subset=['index_right', 'geometry'])
-display(intersecting)
-
-area_sums = intersecting.groupby('index_right')['area'].sum()
-
-geodataset[f"sum_area_{radius_meter}m"] = geodataset.index.map(area_sums).fillna(0)
-display(geodataset)
-
 
 # print(8756.9 + 2676.0 + 2297.6 + 2323.4 + 8792.1)
 
