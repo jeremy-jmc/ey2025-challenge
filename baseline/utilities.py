@@ -198,7 +198,7 @@ def map_satellite_data(tiff_path: str, csv_path_or_df) -> pd.DataFrame:
 # -----------------------------------------------------------------------------
 
 def buffer_meters(row, meters):
-    return row['geometry'].buffer(meters)
+    return row['geometry'].buffer(meters)   # , cap_style='square'
 
 
 def compute_geographic_bounding_boxes(df, meters):

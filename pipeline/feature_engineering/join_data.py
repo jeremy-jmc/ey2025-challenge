@@ -27,11 +27,11 @@ sentinel_features_bands_df = pd.read_parquet(f'../data/processed/{MODE}/sentinel
 print(f"{sentinel_features_bands_df.columns=}")
 landsat_features_df = pd.read_parquet(f'../data/processed/{MODE}/landsat.parquet')
 print(f"{landsat_features_df.columns=}")
+# ny_mesonet_features_df = pd.read_parquet(f'../data/processed/{MODE}/ny_mesonet_features.parquet')
+# print(f"{ny_mesonet_features_df.columns=}")
 
 if MODE == 'train':
     cluster_df = pd.read_parquet(f'../data/processed/{MODE}/cluster.parquet')
-# ny_mesonet_features_df = pd.read_parquet(f'../data/processed/{MODE}/ny_mesonet_features.parquet')
-# print(f"{ny_mesonet_features_df.columns=}")
 
 # -----------------------------------------------------------------------------
 # * Joining the predictor variables and response variables
@@ -42,6 +42,7 @@ uhi_data = combine_two_datasets(ground_df,sentinel_bands_df)
 uhi_data = combine_two_datasets(uhi_data, sentinel_features_df)
 uhi_data = combine_two_datasets(uhi_data, landsat_features_df)
 uhi_data = combine_two_datasets(uhi_data, sentinel_features_bands_df)
+
 if MODE == 'train':
     uhi_data = combine_two_datasets(uhi_data, cluster_df)
 # uhi_data = combine_two_datasets(uhi_data, ny_mesonet_features_df)

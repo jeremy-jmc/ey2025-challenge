@@ -6,3 +6,8 @@
 __pycache__/
 
 pipeline/data/processed/
+pipeline/data/other/
+
+*.geojson
+
+baseline/BUILDING_*
