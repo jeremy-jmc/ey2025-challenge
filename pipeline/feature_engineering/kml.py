@@ -112,7 +112,7 @@ dataset = train_data[['longitude', 'latitude']]
 dataset['geometry'] = gpd.points_from_xy(dataset['longitude'], dataset['latitude'])
 
 # ! TODO: Remove the .sample
-geodataset = gpd.GeoDataFrame(dataset.sample(200, ignore_index=True), crs='EPSG:4326')     # , random_state=42
+geodataset = gpd.GeoDataFrame(dataset, crs='EPSG:4326')     # , random_state=42     .sample(200, ignore_index=True)
 
 radius_list = [25] + json.loads(open('../data/radius_list.json', 'r').read())['radius_list']
 
@@ -138,15 +138,24 @@ for radius_meter in tqdm(radius_list, total=len(radius_list), desc='Radius Areas
     geodataset[f"sum_areas_{radius_meter}m"] = geodataset.index.map(area_sums).fillna(0)
     
     # * NYC Buildings
+    intersecting_buildings = gpd.sjoin(bv[['Area', 'Length', 'geometry', 'GROUND_ELEVATION', 'HEIGHT_ROOF']], 
+        gpd.GeoDataFrame(geometry=geodataset[f'buffer_{radius_meter}m'], crs=bv.crs), 
+        predicate="intersects",
+        how='inner'
+        ).drop_duplicates(subset=['index_right', 'geometry'])
+    intersecting_buildings.columns = intersecting_buildings.columns.str.lower()
     
+    grnd_elev = intersecting_buildings.groupby('index_right')['ground_elevation'].mean()
+    height_roof = intersecting_buildings.groupby('index_right')['height_roof'].mean()
+
+    geodataset[f"mean_grnd_elev_{radius_meter}m"] = geodataset.index.map(grnd_elev).fillna(0)
+    geodataset[f"mean_height_roof_{radius_meter}m"] = geodataset.index.map(height_roof).fillna(0)
     # TODO: Linear combination of area and height of buildings inside the buffer with `bv` variable
     
-
-
     geodataset = geodataset.drop(columns=[f'buffer_{radius_meter}m'])
-    display(geodataset)
+    # display(geodataset)
 
-geodataset = geodataset.to_crs(epsg=4326)
+geodataset = geodataset.to_crs(epsg=4326).drop(columns=['longitude', 'latitude', 'geometry'])
 
 display(geodataset)
 
@@ -160,25 +169,3 @@ TODO ValDLaw:
         Answer the following question creating a new feature as a column: 
             What is the area of buildings within a 250m radius of the point? Extrapolate to multiple radius values
 """
-
-radius_meter = 50
-
-geodataset = geodataset.to_crs(epsg=3395)
-
-geodataset[f'buffer_{radius_meter}m'] = (
-    geodataset.apply(lambda x: buffer_meters(x, radius_meter), axis=1)
-    .set_crs(3395)
-    .to_crs(epsg=4326)
-)
-
-intersecting_buildings = gpd.sjoin(bv[['Area', 'Length', 'geometry', 'GROUND_ELEVATION', 'HEIGHT_ROOF']], 
-    gpd.GeoDataFrame(geometry=geodataset[f'buffer_{radius_meter}m'], crs=bv.crs), 
-    predicate="intersects",
-    how='inner'
-    ).drop_duplicates(subset=['index_right', 'geometry'])
-
-display(intersecting_buildings)
-
-geodataset = geodataset.to_crs(epsg=4326)
-
-
