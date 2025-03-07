@@ -16,6 +16,8 @@ fiona.drvsupport.supported_drivers['LIBKML'] = 'rw'
 
 kml_path = '../../baseline/Building_Footprint.kml'
 
+MODE = 'train'  # 'submission' 'train'
+
 # # -----------------------------------------------------------------------------
 # # Read KML from base
 # # -----------------------------------------------------------------------------
@@ -90,8 +92,6 @@ bv_csv = (
 
 bv = bv.join(bv_csv.set_index('DOITT ID'), on='DOITT_ID')
 
-bv.to_file('../data/other/bv.json', driver='GeoJSON')
-
 # https://github.com/CityOfNewYork/nyc-geo-metadata/blob/main/Metadata/Metadata_BuildingFootprints.md
 
 bv = bv[['CONSTRUCTION_YEAR', 'FEATURE_CODE', 'GROUND_ELEVATION', 'HEIGHT_ROOF', 'LAST_EDITED_DATE', 'LAST_STATUS_TYPE', 'geometry', 'area', 'Area', 'Length']]
@@ -100,21 +100,33 @@ bv = bv.loc[bv['CONSTRUCTION_YEAR'] < 2021].reset_index(drop=True)     # ! Check
 
 # ? Length variable is the perimeter?
 # TODO: Filter all polygons/geometries than intersects with any of the bld_footprint geometries
+print(f"{bv.shape=}")
+bv = bv[bv['geometry'].apply(lambda x: bld_footprint['geometry'].intersects(x).any())].reset_index(drop=True)
+print(f"{bv.shape=}")
+
+bv.to_file('../data/other/bv.json', driver='GeoJSON')
 
 # -----------------------------------------------------------------------------
 # * Point and Radius/Buffer Queries
 # -----------------------------------------------------------------------------
 
-train_data = pd.read_csv('../../baseline/Training_data_uhi_index.csv')
-train_data.columns = train_data.columns.str.lower()
+# Load the training data from csv file and display the first few rows to inspect the data
+if MODE == 'train':
+    ground_df = pd.read_csv('../../baseline/Training_data_uhi_index.csv')
+elif MODE == 'submission':
+    ground_df = pd.read_csv("../../baseline/Submission_template.csv")
+else:
+    raise ValueError("MODE should be either 'train' or 'submission")
 
-dataset = train_data[['longitude', 'latitude']]
+ground_df.columns = ground_df.columns.str.lower()
+
+dataset = ground_df[['longitude', 'latitude']]
 dataset['geometry'] = gpd.points_from_xy(dataset['longitude'], dataset['latitude'])
 
 # ! TODO: Remove the .sample
 geodataset = gpd.GeoDataFrame(dataset, crs='EPSG:4326')     # , random_state=42     .sample(200, ignore_index=True)
 
-radius_list = [25] + json.loads(open('../data/radius_list.json', 'r').read())['radius_list']
+radius_list = json.loads(open('../data/radius_list.json', 'r').read())['radius_list']
 
 for radius_meter in tqdm(radius_list, total=len(radius_list), desc='Radius Areas'):
     geodataset = geodataset.to_crs(epsg=3395)
@@ -133,23 +145,25 @@ for radius_meter in tqdm(radius_list, total=len(radius_list), desc='Radius Areas
                             ).drop_duplicates(subset=['index_right', 'geometry'])
 
     area_sums = intersecting_squares.groupby('index_right')['area'].sum()
-    # TODO: mean and std of areas inside the buffer
+    # TODO: mean and std of areas intersecting with the circular buffer
 
-    geodataset[f"sum_areas_{radius_meter}m"] = geodataset.index.map(area_sums).fillna(0)
+    geodataset[f"kml_sum_areas_{radius_meter}m"] = geodataset.index.map(area_sums).fillna(0)
     
     # * NYC Buildings
     intersecting_buildings = gpd.sjoin(bv[['Area', 'Length', 'geometry', 'GROUND_ELEVATION', 'HEIGHT_ROOF']], 
         gpd.GeoDataFrame(geometry=geodataset[f'buffer_{radius_meter}m'], crs=bv.crs), 
-        predicate="intersects",
+        predicate="intersects",     # within
         how='inner'
         ).drop_duplicates(subset=['index_right', 'geometry'])
     intersecting_buildings.columns = intersecting_buildings.columns.str.lower()
     
-    grnd_elev = intersecting_buildings.groupby('index_right')['ground_elevation'].mean()
-    height_roof = intersecting_buildings.groupby('index_right')['height_roof'].mean()
+    grnd_elev = intersecting_buildings.groupby('index_right')['ground_elevation']
+    height_roof = intersecting_buildings.groupby('index_right')['height_roof']
 
-    geodataset[f"mean_grnd_elev_{radius_meter}m"] = geodataset.index.map(grnd_elev).fillna(0)
-    geodataset[f"mean_height_roof_{radius_meter}m"] = geodataset.index.map(height_roof).fillna(0)
+    geodataset[f"kml_mean_grnd_elev_{radius_meter}m"] = geodataset.index.map(grnd_elev.mean()).fillna(0)
+    geodataset[f"kml_std_grnd_elev_{radius_meter}m"] = geodataset.index.map(grnd_elev.std()).fillna(0)
+    geodataset[f"kml_mean_height_roof_{radius_meter}m"] = geodataset.index.map(height_roof.mean()).fillna(0)
+    geodataset[f"kml_std_height_roof_{radius_meter}m"] = geodataset.index.map(height_roof.std()).fillna(0)
     # TODO: Linear combination of area and height of buildings inside the buffer with `bv` variable
     
     geodataset = geodataset.drop(columns=[f'buffer_{radius_meter}m'])
@@ -158,6 +172,10 @@ for radius_meter in tqdm(radius_list, total=len(radius_list), desc='Radius Areas
 geodataset = geodataset.to_crs(epsg=4326).drop(columns=['longitude', 'latitude', 'geometry'])
 
 display(geodataset)
+print(f"{geodataset.shape=}")
+print(f"{ground_df.shape=}")
+
+geodataset.to_parquet(f'../data/processed/{MODE}/building_footprint.parquet')
 
 # print(8756.9 + 2676.0 + 2297.6 + 2323.4 + 8792.1)
 

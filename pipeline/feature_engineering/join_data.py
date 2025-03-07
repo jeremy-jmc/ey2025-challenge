@@ -27,11 +27,13 @@ sentinel_features_bands_df = pd.read_parquet(f'../data/processed/{MODE}/sentinel
 print(f"{sentinel_features_bands_df.columns=}")
 landsat_features_df = pd.read_parquet(f'../data/processed/{MODE}/landsat.parquet')
 print(f"{landsat_features_df.columns=}")
-# ny_mesonet_features_df = pd.read_parquet(f'../data/processed/{MODE}/ny_mesonet_features.parquet')
-# print(f"{ny_mesonet_features_df.columns=}")
+ny_mesonet_features_df = pd.read_parquet(f'../data/processed/{MODE}/ny_mesonet_features.parquet')
+print(f"{ny_mesonet_features_df.columns=}")
+bldng_footprint = pd.read_parquet(f'../data/processed/{MODE}/building_footprint.parquet')
+print(f"{bldng_footprint.columns=}")
 
-if MODE == 'train':
-    cluster_df = pd.read_parquet(f'../data/processed/{MODE}/cluster.parquet')
+# if MODE == 'train':
+#     cluster_df = pd.read_parquet(f'../data/processed/{MODE}/cluster.parquet')
 
 # -----------------------------------------------------------------------------
 # * Joining the predictor variables and response variables
@@ -42,10 +44,11 @@ uhi_data = combine_two_datasets(ground_df,sentinel_bands_df)
 uhi_data = combine_two_datasets(uhi_data, sentinel_features_df)
 uhi_data = combine_two_datasets(uhi_data, landsat_features_df)
 uhi_data = combine_two_datasets(uhi_data, sentinel_features_bands_df)
+uhi_data = combine_two_datasets(uhi_data, ny_mesonet_features_df)
+uhi_data = combine_two_datasets(uhi_data, bldng_footprint)
 
-if MODE == 'train':
-    uhi_data = combine_two_datasets(uhi_data, cluster_df)
-# uhi_data = combine_two_datasets(uhi_data, ny_mesonet_features_df)
+# if MODE == 'train':
+#     uhi_data = combine_two_datasets(uhi_data, cluster_df)
 
 all_features = uhi_data.copy()
 for col in all_features.columns:
@@ -53,8 +56,8 @@ for col in all_features.columns:
 
 # Remove duplicate rows from the DataFrame based on specified columns and keep the first occurrence
 columns_to_check = \
-    ['B01', 'B06', 'UHI Index', 'B02', 'B03', 'B04', 'B05', 'B07', 'B08', 'B8A', 'B11', 'B12'] + \
-    ['NDVI', 'gNDBI', 'UI', 'NDBI', 'NBI', 'BRBA', 'NBAI', 'MBI', 'BAEI', 'gCI']
+    ['B01', 'B06', 'UHI Index', 'B02', 'B03', 'B04', 'B05', 'B07', 'B08', 'B8A', 'B11', 'B12'] # + \
+    # ['NDVI', 'gNDBI', 'UI', 'NDBI', 'NBI', 'BRBA', 'NBAI', 'MBI', 'BAEI', 'gCI']
 
 for col in columns_to_check:
     # Check if the value is a numpy array and has more than one dimension
@@ -78,14 +81,10 @@ elif MODE == 'submission':
 else:
     raise ValueError("MODE should be either 'train' or 'submission'")
 
-# Saving the extracted column names into a JSON file
-column_groups = json.loads(open('../data/column_groups.json').read())
-column_names = []
-for k, v in column_groups.items():
-    column_names += v
+print(f"{uhi_data.shape=}")
 
-with open('../data/columns.json', 'w') as f:
-    json.dump({'features': column_names}, f, indent=4)
+with open('../data/columns.json', mode='w') as f:
+    json.dump({'features': [c for c in uhi_data.columns if c not in ['Longitude', 'Latitude', 'UHI Index']]}, f, indent=4)
 
 print(f"{list(uhi_data.columns)=}")
 

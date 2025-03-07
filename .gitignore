@@ -5,9 +5,10 @@
 
 __pycache__/
 
-pipeline/data/processed/
 pipeline/data/other/
 
 *.geojson
 
 baseline/BUILDING_*
+
+lab.py
