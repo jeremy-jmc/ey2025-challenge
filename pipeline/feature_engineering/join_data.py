@@ -9,7 +9,7 @@ pandarallel.initialize(progress_bar=False, nb_workers=8)
 
 SENTINEL_TIFF_PATH = '../../baseline/S2_sample.tiff' # './S2_sample_5res.tiff'
 LANDSAT_TIFF_PATH = '../../baseline/Landsat_LST.tiff'
-MODE = 'train'  # 'submission' 'train'
+MODE = 'submission'  # 'submission' 'train'
 
 # Load the training data from csv file and display the first few rows to inspect the data
 if MODE == 'train':

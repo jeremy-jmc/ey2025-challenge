@@ -1,6 +1,7 @@
 import sys
 sys.path.append('..')
 
+import yaml
 from baseline.utilities import *
 
 MODE = 'feature_selection'  # 'train_model', 'feature_selection'
@@ -8,12 +9,11 @@ HT = True
 
 train_data = pd.read_parquet('./data/processed/train/train_data.parquet')
 print(train_data.shape)
-y_cluster = train_data['cluster']
-train_data = train_data.drop(columns=['cluster'])
+# y_cluster = train_data['cluster']
+# train_data = train_data.drop(columns=['cluster'])
 
-column_dict = json.loads(open('./data/columns.json').read())
+feature_list = yaml.safe_load(open('./data/columns.yml', 'r'))['features']
 
-feature_list = [col for col in column_dict['features']]
 # feature_list = [f for f in feature_list if not any(f.startswith(c) for c in ['sntnl_buffer_band'])]
 # [f'sntnl_buffer_band_{v}' for v in range(1, 12) if v not in [1, 9]]
 # feature_list = [f for f in feature_list if not any(f.startswith(c) for c in ['sntnl'])]
@@ -38,12 +38,6 @@ print(uhi_data.isna().sum())
 
 X = uhi_data.drop(columns=['UHI Index'])
 y = uhi_data['UHI Index'].values
-
-# corr_matrix = X.corr()
-# plt.figure()
-# sns.heatmap(corr_matrix, annot=True, cmap="coolwarm", fmt=".2f")
-# plt.title("Feature Correlation Matrix")
-# plt.show()
 
 # -----------------------------------------------------------------------------
 # Train/Test Split
@@ -90,7 +84,6 @@ display(X_train)
 display(X_test)
 
 # TODO: Save the X_train, X_test in GeoJSON format in order to check how the split is done.
-
 X_train = X_train.values
 X_test = X_test.values
 
@@ -239,7 +232,7 @@ if HT:
     # Train final model with the best parameters
     model = grid_search.best_estimator_
 
-    cv_scores = cross_val_score(copy.deepcopy(model), X, y, cv=5, scoring='r2', n_jobs=-1)
+    cv_scores = cross_val_score(RandomForestRegressor(**grid_search.best_params_, random_state=SEED), X, y, cv=5, scoring='r2', n_jobs=-1)
     print(f"{cv_scores.mean()=}")
 
 else:

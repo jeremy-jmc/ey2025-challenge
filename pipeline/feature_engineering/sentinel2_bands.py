@@ -10,7 +10,7 @@ pandarallel.initialize(progress_bar=False, nb_workers=8)
 
 SENTINEL_TIFF_PATH = '../../baseline/S2_sample.tiff' # './S2_sample_5res.tiff'
 LANDSAT_TIFF_PATH = '../../baseline/Landsat_LST.tiff'
-MODE = 'train'  # 'submission' 'train'
+MODE = 'submission'  # 'submission' 'train'
 
 # Load the training data from csv file and display the first few rows to inspect the data
 if MODE == 'train':
@@ -108,12 +108,12 @@ print(sentinel2_bands_df.std())
 os.makedirs(f'../data/processed/{MODE}', exist_ok=True)
 sentinel2_bands_df.to_parquet(f'../data/processed/{MODE}/sentinel2_bands.parquet')
 
-# Update column groups
-column_groups = json.loads(open("../data/column_groups.json").read())
+# # Update column groups
+# column_groups = json.loads(open("../data/column_groups.json").read())
 
-column_groups['sentinel2_bands'] = [col for col in sentinel2_bands_df.columns if col not in sentinel_2_indices]
-column_groups['sentinel2_band_indices'] = sentinel_2_indices
+# column_groups['sentinel2_bands'] = [col for col in sentinel2_bands_df.columns if col not in sentinel_2_indices]
+# column_groups['sentinel2_band_indices'] = sentinel_2_indices
 
-with open('../data/column_groups.json', 'w') as f:
-    f.write(json.dumps(column_groups, indent=4))
+# with open('../data/column_groups.json', 'w') as f:
+#     f.write(json.dumps(column_groups, indent=4))
 

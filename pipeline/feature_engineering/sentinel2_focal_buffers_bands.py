@@ -10,7 +10,7 @@ pandarallel.initialize(progress_bar=False, nb_workers=8)
 
 SENTINEL_TIFF_PATH = '../../baseline/S2_sample.tiff' # './S2_sample_5res.tiff'
 LANDSAT_TIFF_PATH = '../../baseline/Landsat_LST.tiff'
-MODE = 'train'  # 'submission' 'train'
+MODE = 'submission'  # 'submission' 'train'
 
 # Load the training data from csv file and display the first few rows to inspect the data
 if MODE == 'train':
@@ -62,11 +62,11 @@ display(sentinel_features_df[sentinel_focal_radius_ft].head())
 # Save data
 sentinel_features_df[sentinel_focal_radius_ft].to_parquet(f'../data/processed/{MODE}/sentinel2_focal_buffers_bands.parquet')
 
-# Update column groups
-column_groups = json.loads(open("../data/column_groups.json").read())
+# # Update column groups
+# column_groups = json.loads(open("../data/column_groups.json").read())
 
-column_groups['sentinel2_focal_buffer_features_bands'] = sentinel_focal_radius_ft
+# column_groups['sentinel2_focal_buffer_features_bands'] = sentinel_focal_radius_ft
 
-with open('../data/column_groups.json', 'w') as f:
-    f.write(json.dumps(column_groups, indent=4))
+# with open('../data/column_groups.json', 'w') as f:
+#     f.write(json.dumps(column_groups, indent=4))
 

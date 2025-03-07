@@ -16,7 +16,7 @@ fiona.drvsupport.supported_drivers['LIBKML'] = 'rw'
 
 kml_path = '../../baseline/Building_Footprint.kml'
 
-MODE = 'train'  # 'submission' 'train'
+MODE = 'submission'  # 'submission' 'train'
 
 # # -----------------------------------------------------------------------------
 # # Read KML from base

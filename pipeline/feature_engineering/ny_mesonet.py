@@ -10,7 +10,7 @@ pandarallel.initialize(progress_bar=False, nb_workers=8)
 
 SENTINEL_TIFF_PATH = '../../baseline/S2_sample.tiff' # './S2_sample_5res.tiff'
 LANDSAT_TIFF_PATH = '../../baseline/Landsat_LST.tiff'
-MODE = 'train'  # 'submission' 'train'
+MODE = 'submission'  # 'submission' 'train'
 
 # Load the training data from csv file and display the first few rows to inspect the data
 if MODE == 'train':
@@ -168,10 +168,10 @@ display(ny_mesonet_features)
 # Save data
 ny_mesonet_features.to_parquet(f'../data/processed/{MODE}/ny_mesonet_features.parquet')
 
-# Update column groups
-column_groups = json.loads(open("../data/column_groups.json").read())
+# # Update column groups
+# column_groups = json.loads(open("../data/column_groups.json").read())
 
-column_groups['ny_mesonet_features'] = ny_mesonet_features.columns.tolist()
+# column_groups['ny_mesonet_features'] = ny_mesonet_features.columns.tolist()
 
-with open('../data/column_groups.json', 'w') as f:
-    f.write(json.dumps(column_groups, indent=4))
+# with open('../data/column_groups.json', 'w') as f:
+#     f.write(json.dumps(column_groups, indent=4))
