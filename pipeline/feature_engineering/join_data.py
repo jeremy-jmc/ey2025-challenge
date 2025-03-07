@@ -84,9 +84,17 @@ else:
 print(f"{uhi_data.shape=}")
 
 with open('../data/columns.json', mode='w') as f:
-    json.dump({'features': [c for c in uhi_data.columns if c not in ['Longitude', 'Latitude', 'UHI Index']]}, f, indent=4)
+    json.dump({'features': [c for c in uhi_data.columns if c not in ['Longitude', 'Latitude', 'UHI Index', 'datetime']]}, f, indent=4)
 
 print(f"{list(uhi_data.columns)=}")
 
+import yaml
+with open('../data/columns.yml', mode='w') as f:
+    yaml.dump({'features': [c for c in uhi_data.columns if c not in ['Longitude', 'Latitude', 'UHI Index', 'datetime']]}, f)
+
+# Open Yaml
+feature_list = yaml.safe_load(open('../data/columns.yml', 'r'))['features']
+print(len(feature_list))
+print(feature_list)
 
 # ls -lhR --block-size=M ./data/processed
