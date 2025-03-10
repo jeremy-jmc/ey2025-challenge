@@ -4,7 +4,7 @@ sys.path.append('..')
 import yaml
 from baseline.utilities import *
 
-MODE = 'feature_selection'  # 'train_model', 'feature_selection'
+MODE = 'train_model'  # 'train_model', 'feature_selection'
 HT = True
 
 train_data = pd.read_parquet('./data/processed/train/train_data.parquet')
@@ -97,14 +97,14 @@ sc = StandardScaler() # MinMaxScaler()
 X_train = sc.fit_transform(X_train)
 X_test = sc.transform(X_test)
 
-# -----------------------------------------------------------------------------
-# Baseline Model
-# -----------------------------------------------------------------------------
+# # -----------------------------------------------------------------------------
+# # Baseline Model
+# # -----------------------------------------------------------------------------
 
-print("BASELINE MODEL")
-baseline_model = RandomForestRegressor(oob_score=True, random_state=SEED, n_jobs=-1)
-cv_scores = cross_val_score(baseline_model, X, y, cv=5, scoring='r2')
-print(f"{cv_scores.mean()=}")
+# print("BASELINE MODEL")
+# baseline_model = RandomForestRegressor(oob_score=True, random_state=SEED, n_jobs=-1)
+# cv_scores = cross_val_score(baseline_model, X, y, cv=5, scoring='r2')
+# print(f"{cv_scores.mean()=}")
 
 # -----------------------------------------------------------------------------
 # Feature Selection
@@ -118,7 +118,7 @@ if MODE == 'feature_selection':
     """
     # DecisionTreeRegressor(random_state=SEED)
     # GradientBoostingRegressor(random_state=42)
-    rfe_fs = RFECV(estimator=DecisionTreeRegressor(random_state=SEED), cv=KFold(n_splits=3, shuffle=True, random_state=SEED), scoring='r2', step=10, n_jobs=-1, verbose=1)
+    rfe_fs = RFECV(estimator=DecisionTreeRegressor(random_state=SEED), cv=KFold(n_splits=5, shuffle=True, random_state=SEED), scoring='r2', step=5, n_jobs=-1, verbose=1)
     # rfe_fs = RFE(estimator=RandomForestRegressor(n_estimators=100, oob_score=True, random_state=SEED, n_jobs=-1), n_features_to_select=20, step=1, verbose=1)
 
     X_selected = rfe_fs.fit_transform(X, y)
@@ -168,12 +168,12 @@ X_test = X_test[:, mask_selected_cols]
 print(f"{X_train.shape=}")
 print(f"{X_test.shape=}")
 
-# * Correlation matrix of selected features
-corr_matrix = pd.DataFrame(X_train, columns=selected_features).corrwith(pd.Series(y_train, name='UHI Index'))
-plt.figure()
-sns.heatmap(corr_matrix.to_frame(), annot=True, cmap="coolwarm", fmt=".2f")
-plt.title("Correlation Matrix between Features and Target (UHI Index)")
-plt.show()
+# # * Correlation matrix of selected features
+# corr_matrix = pd.DataFrame(X_train, columns=selected_features).corrwith(pd.Series(y_train, name='UHI Index'))
+# plt.figure()
+# sns.heatmap(corr_matrix.to_frame(), annot=True, cmap="coolwarm", fmt=".2f")
+# plt.title("Correlation Matrix between Features and Target (UHI Index)")
+# plt.show()
 
 # * Save the X_train and X_test
 np.save('./data/X_train.npy', X_train)
@@ -232,13 +232,12 @@ if HT:
     # Train final model with the best parameters
     model = grid_search.best_estimator_
 
-    cv_scores = cross_val_score(RandomForestRegressor(**grid_search.best_params_, random_state=SEED), X, y, cv=5, scoring='r2', n_jobs=-1)
-    print(f"{cv_scores.mean()=}")
-
+    # cv_scores = cross_val_score(RandomForestRegressor(**grid_search.best_params_, random_state=SEED), X, y, cv=5, scoring='r2', n_jobs=-1)
+    # print(f"{cv_scores.mean()=}")
 else:
     model = RandomForestRegressor(n_estimators=100, oob_score=True, random_state=SEED, n_jobs=-1)
     
-    cv_scores = cross_val_score(copy.deepcopy(model), X, y, cv=5, scoring='r2', n_jobs=-1)
+    cv_scores = cross_val_score(copy.deepcopy(model), X_train, y_train, cv=5, scoring='r2', n_jobs=-1)
     print(f"{cv_scores.mean()=}")
 
     # model = LGBMRegressor(boosting_type='rf', random_state=SEED)
@@ -315,7 +314,7 @@ from sklearn.model_selection import learning_curve
 import matplotlib.pyplot as plt
 
 train_sizes, train_scores, val_scores = learning_curve(
-    baseline_model, X, y, cv=5, scoring="r2", train_sizes=[0.7, 0.8, 0.9], n_jobs=4, verbose=1
+    model, X, y, cv=5, scoring="r2", train_sizes=[0.7, 0.8, 0.9], n_jobs=4, verbose=1
 )   # np.linspace(0.1, 1.0, 10)
 
 plt.plot(train_sizes, train_scores.mean(axis=1), label="Train R²", marker="o")

@@ -7,10 +7,13 @@ import sys
 sys.path.append('..')
 
 from baseline.utilities import *
+import yaml
 
 ''' SUBMISSION '''
 # * Reading the coordinates for the submission
-test_file = pd.read_parquet('./data/processed/submission/submission_data.parquet')
+feature_list = yaml.safe_load(open('./data/columns.yml', 'r'))['features'] + ['Latitude', 'Longitude', 'UHI Index']
+
+test_file = pd.read_parquet('./data/processed/submission/submission_data.parquet')[feature_list]
 # test_file = test_file[[col for col in test_file.columns if 'diff_wind_influence_' not in col]]
 # for col in test_file:
 #     print(col)
@@ -32,7 +35,7 @@ selected_features = json.loads(open("selected_features.json", "r").read())['sele
 # Scale the training and test data using standardscaler
 sc = joblib.load('./models/scaler.pkl')
 
-transformed_submission_data = sc.transform(test_file.drop(columns=['Latitude', 'Longitude', 'UHI Index']))# [selected_features]
+transformed_submission_data = sc.transform(test_file.drop(columns=['Latitude', 'Longitude', 'UHI Index']))  # [selected_features]
 transformed_submission_data = (
     pd.DataFrame(transformed_submission_data, 
                  columns=[col for col in test_file.columns if col not in ['Latitude', 'Longitude', 'UHI Index']]
@@ -59,4 +62,4 @@ submission_df = pd.DataFrame({
 })
 
 # Dumping the predictions into a csv file.
-submission_df.to_csv("../submissions/RF_0,9629_CV10_29FT_0,15remove_bands_radius_add_index_radius_remove_nymesonet_GridSearchCV.csv", index=False)
+submission_df.to_csv("../submissions/RF_0,9618_CV10_13FT_0,20rfecv_all.csv", index=False)
