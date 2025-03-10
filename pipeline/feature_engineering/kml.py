@@ -144,11 +144,14 @@ for radius_meter in tqdm(radius_list, total=len(radius_list), desc='Radius Areas
                             how='inner'
                             ).drop_duplicates(subset=['index_right', 'geometry'])
 
-    area_sums = intersecting_squares.groupby('index_right')['area'].sum()
-    # TODO: mean and std of areas intersecting with the circular buffer
+    squares_gb = intersecting_squares.groupby('index_right')['area']
 
-    geodataset[f"kml_sum_areas_{radius_meter}m"] = geodataset.index.map(area_sums).fillna(0)
-    
+    geodataset[f"kml_max_areas_{radius_meter}m"] = geodataset.index.map(squares_gb.max()).fillna(0)
+    geodataset[f"kml_min_areas_{radius_meter}m"] = geodataset.index.map(squares_gb.min()).fillna(0)
+    geodataset[f"kml_mean_areas_{radius_meter}m"] = geodataset.index.map(squares_gb.mean()).fillna(0)
+    geodataset[f"kml_sum_areas_{radius_meter}m"] = geodataset.index.map(squares_gb.sum()).fillna(0)
+    geodataset[f"kml_count_buildings_{radius_meter}m"] = geodataset.index.map(squares_gb.count()).fillna(0)
+
     # * NYC Buildings
     intersecting_buildings = gpd.sjoin(bv[['Area', 'Length', 'geometry', 'GROUND_ELEVATION', 'HEIGHT_ROOF']], 
         gpd.GeoDataFrame(geometry=geodataset[f'buffer_{radius_meter}m'], crs=bv.crs), 
@@ -160,10 +163,16 @@ for radius_meter in tqdm(radius_list, total=len(radius_list), desc='Radius Areas
     grnd_elev = intersecting_buildings.groupby('index_right')['ground_elevation']
     height_roof = intersecting_buildings.groupby('index_right')['height_roof']
 
+    geodataset[f"kml_max_grnd_elev_{radius_meter}m"] = geodataset.index.map(grnd_elev.max()).fillna(0)
+    geodataset[f"kml_min_grnd_elev_{radius_meter}m"] = geodataset.index.map(grnd_elev.min()).fillna(0)
     geodataset[f"kml_mean_grnd_elev_{radius_meter}m"] = geodataset.index.map(grnd_elev.mean()).fillna(0)
     geodataset[f"kml_std_grnd_elev_{radius_meter}m"] = geodataset.index.map(grnd_elev.std()).fillna(0)
+
+    geodataset[f"kml_max_height_roof_{radius_meter}m"] = geodataset.index.map(height_roof.max()).fillna(0)
+    geodataset[f"kml_min_height_roof_{radius_meter}m"] = geodataset.index.map(height_roof.min()).fillna(0)
     geodataset[f"kml_mean_height_roof_{radius_meter}m"] = geodataset.index.map(height_roof.mean()).fillna(0)
     geodataset[f"kml_std_height_roof_{radius_meter}m"] = geodataset.index.map(height_roof.std()).fillna(0)
+    
     # TODO: Linear combination of area and height of buildings inside the buffer with `bv` variable
     
     geodataset = geodataset.drop(columns=[f'buffer_{radius_meter}m'])

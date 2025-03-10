@@ -63,6 +63,13 @@ for col in columns_to_check:
     # Check if the value is a numpy array and has more than one dimension
     uhi_data[col] = uhi_data[col].apply(lambda x: tuple(x) if isinstance(x, np.ndarray) and x.ndim > 0 else x)
 
+# # ! HANDCRAFTED: Ensure correctness
+# old_df = pd.read_parquet(f'../data/{MODE}_data.parquet')
+# new_columns = list(set(old_df.columns).difference(uhi_data.columns))
+# print(f"{new_columns=}")
+
+# uhi_data = combine_two_datasets(uhi_data, old_df[new_columns])
+
 # Now remove duplicates
 if MODE == 'train':
     uhi_data.to_parquet(f'../data/processed/{MODE}/train_data.parquet')
