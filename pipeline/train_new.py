@@ -9,6 +9,7 @@ TARGET = 'UHI Index'
 X = pd.read_parquet('./data/processed/train/X_selected.parquet')
 y = pd.read_parquet('./data/processed/train/y_selected.parquet')[TARGET]
 
+# 0.9738 -> 0.1
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.05, 
                                                     shuffle=True, 
                                                     random_state=SEED, 
