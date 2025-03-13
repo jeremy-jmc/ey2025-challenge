@@ -37,6 +37,7 @@ param_grid = {
     'min_samples_split': [2, 5, 10],
     'min_samples_leaf': [1, 2, 4],
     'max_features': ['auto', 'sqrt'],
+    # 'criterion': ["squared_error", "friedman_mse"],  # "absolute_error", , "poisson"
     # 'bootstrap': [True, False]
 }
 

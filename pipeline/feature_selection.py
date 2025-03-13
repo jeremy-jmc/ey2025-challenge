@@ -49,23 +49,43 @@ corr_matrix = X.corr().abs()
 
 upper = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
 
-to_drop = [column for column in upper.columns if any(upper[column] > 0.9)]
+to_drop = [column for column in upper.columns if any(upper[column] > 0.85)]
 print(f"{to_drop=}")
 
-X = X.drop(columns=to_drop)
-print(f"After collinearity removal -> {len(X.columns)=}")
+X_filtered = X.drop(columns=to_drop)
+print(f"After collinearity removal -> {len(X_filtered.columns)=}")
+
+print(X_filtered.columns)
+
+# # -----------------------------------------------------------------------------
+# # Mutual Info Regression
+# # -----------------------------------------------------------------------------
+# from sklearn.feature_selection import mutual_info_regression
+
+# mi = mutual_info_regression(X, y, n_neighbors=3, random_state=SEED)
+
+# mi = pd.Series(mi, index=X.columns)
+# mi = mi.sort_values(ascending=False)
+
+# X_mi = X.loc[:, mi[mi > 0.01].index]
+
+# print(X_mi.shape)
+# display(X_mi)
 
 # -----------------------------------------------------------------------------
 # RFECV with RandomForest
 # -----------------------------------------------------------------------------
 
 from sklearn.feature_selection import RFECV
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor, HistGradientBoostingRegressor, GradientBoostingRegressor
+from lightgbm import LGBMRegressor
+import warnings
+warnings.filterwarnings('ignore')
 
-rfe_fs = RFECV(estimator=RandomForestRegressor(oob_score=True, random_state=SEED), 
-               cv=KFold(n_splits=5, shuffle=True, random_state=SEED), 
-               scoring='r2', step=2, n_jobs=-1, verbose=1)
-X_selected = rfe_fs.fit_transform(X, y)
+rfe_fs = RFECV(estimator=RandomForestRegressor(oob_score=True, random_state=SEED),
+               cv=KFold(n_splits=10, shuffle=True, random_state=SEED), 
+               scoring='r2', step=1, n_jobs=-1, verbose=1)
+X_selected = rfe_fs.fit_transform(X_filtered, y)
 
 print(f"{rfe_fs.ranking_=}")
 try:
@@ -74,9 +94,9 @@ try:
     plt.figure()
     # plt.plot(rfe_fs.cv_results_['n_features'][2:], rfe_fs.cv_results_['mean_test_score'][2:], color='blue')
     plt.errorbar(
-        x=rfe_fs.cv_results_["n_features"][2:],
-        y=rfe_fs.cv_results_["mean_test_score"][2:],
-        yerr=rfe_fs.cv_results_["std_test_score"][2:],
+        x=rfe_fs.cv_results_["n_features"][4:],
+        y=rfe_fs.cv_results_["mean_test_score"][4:],
+        yerr=rfe_fs.cv_results_["std_test_score"][4:],
     )
     # plt.xscale('log')
     # plt.yscale('log')
@@ -87,16 +107,21 @@ try:
 except:
     pass
 
-X_rfe = X.loc[:, rfe_fs.support_]
+X_rfe = X_filtered.loc[:, rfe_fs.support_]
 
 print(f"After RFECV Feature Selection-> {X_selected.shape[1]=}")
 print(X_selected.var(axis=0))
 
 display(X_rfe.head())
 
+print(len(X_rfe.columns))
+
 X_rfe.to_parquet('./data/processed/train/X_selected.parquet')
 pd.DataFrame(y).to_parquet('./data/processed/train/y_selected.parquet')
+print("X_rfe saved successfully!")
 
+
+correlations = pd.concat([X_rfe, y], axis=1).corr()[TARGET]
 
 # # -----------------------------------------------------------------------------
 # # Drop columns with 0 variance
