@@ -9,7 +9,7 @@ test_file = pd.read_parquet('./data/processed/submission/submission_data.parquet
 
 
 # * Load Model
-model = joblib.load('./models/random_forest_model.pkl')
+model = joblib.load('./models/stacking.pkl')
 
 sc = joblib.load('./models/scaler.pkl')
 
@@ -24,5 +24,5 @@ submission_df = pd.DataFrame({
     'UHI Index':final_prediction_series.values
 })
 
-submission_df.to_csv(f"../submissions/RF_0,9668_CV10_{len(X_rfe.columns)}FT_0,05_new_pipeline.csv", index=False)
+submission_df.to_csv(f"../submissions/RF_Test_0.975_CV10_{len(X_rfe.columns)}FT_0,01_stacking.csv", index=False)
 
