@@ -37,7 +37,7 @@ from lightgbm import LGBMRegressor
 from catboost import CatBoostRegressor
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, ExtraTreesRegressor, AdaBoostRegressor, BaggingRegressor
 from sklearn.ensemble import StackingRegressor
-from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet, LassoCV
+from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet, LassoCV, ElasticNetCV
 
 models = {
     # 'Linear Regression': LinearRegression(),
@@ -45,27 +45,27 @@ models = {
     # 'Lasso Regression': Lasso(),
     # 'Elastic Net': ElasticNet(),
 
-    # 'Random Forest': RandomForestRegressor(),
-    # 'Gradient Boosting': GradientBoostingRegressor(),
-    # 'XGBoost': XGBRegressor(),
-    # 'LightGBM': LGBMRegressor(verbosity=0),
-    # 'CatBoost': CatBoostRegressor(verbose=0)
+    'Random Forest': RandomForestRegressor(),
+    'Gradient Boosting': GradientBoostingRegressor(),
+    'XGBoost': XGBRegressor(),
+    'LightGBM': LGBMRegressor(verbosity=0),
+    'CatBoost': CatBoostRegressor(verbose=0),
 
-    # 'HistGradientBoosting': HistGradientBoostingRegressor(),
-    # 'Extra Trees': ExtraTreesRegressor(),
-    # 'AdaBoost': AdaBoostRegressor(),
-    # 'Bagging': BaggingRegressor(),
-    # 'Decision Tree': DecisionTreeRegressor(),
+    'HistGradientBoosting': HistGradientBoostingRegressor(),
+    'Extra Trees': ExtraTreesRegressor(),
+    'AdaBoost': AdaBoostRegressor(),
+    'Bagging': BaggingRegressor(),
+    'Decision Tree': DecisionTreeRegressor(),
 
-    'Stacking': StackingRegressor(
-        estimators=[
-            ('rf', RandomForestRegressor(n_jobs=-2)), 
-            ('xgb', XGBRegressor(n_jobs=-2)),
-            # ('ctb', CatBoostRegressor(verbose=0))
-        ],
-        final_estimator=LassoCV(cv=10, n_jobs=-2),
-        verbose=2
-    )
+    # 'Stacking': StackingRegressor(
+    #     estimators=[
+    #         ('rf', RandomForestRegressor(n_jobs=-2)), 
+    #         ('xgb', XGBRegressor(n_jobs=-2)),
+    #         # ('ctb', CatBoostRegressor(verbose=0))
+    #     ],
+    #     final_estimator=ElasticNetCV(cv=10, n_jobs=-2),
+    #     verbose=2
+    # )
 }
 
 for name, model in models.items():
@@ -158,13 +158,15 @@ xgb_model = grid_search_xgb.best_estimator_
 # Stacking
 # -----------------------------------------------------------------------------
 
+rf_best_params_ = {'max_depth': None, 'max_features': 'sqrt', 'min_samples_leaf': 1, 'min_samples_split': 2, 'n_estimators': 200}
+xgb_best_params_ = {'colsample_bytree': 0.7, 'learning_rate': 0.1, 'max_depth': 20, 'n_estimators': 100, 'subsample': 1}
 model = StackingRegressor(
     estimators=[
-        ('rf', RandomForestRegressor(**grid_search_rf.best_params_, n_jobs=-2)), 
-        ('xgb', XGBRegressor(**grid_search_xgb.best_params_, n_jobs=-2)),
+        ('rf', RandomForestRegressor(**rf_best_params_, n_jobs=-2)), 
+        ('xgb', XGBRegressor(**xgb_best_params_, n_jobs=-2)),
         # ('ctb', CatBoostRegressor(verbose=0))
     ],
-    final_estimator=LassoCV(cv=10, n_jobs=-2),
+    final_estimator=ElasticNetCV(cv=10, n_jobs=-2),
     verbose=2
 )
 model.fit(X_train, y_train)
