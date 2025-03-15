@@ -24,5 +24,5 @@ submission_df = pd.DataFrame({
     'UHI Index':final_prediction_series.values
 })
 
-submission_df.to_csv(f"../submissions/RF_LightGBM_0.9736_CV10_{len(X_rfe.columns)}FT_0,01_stacking.csv", index=False)
+submission_df.to_csv(f"../submissions/RF_ElasticNetCV_0.9753_CV10_{len(X_rfe.columns)}FT_0,01_stacking.csv", index=False)
 
