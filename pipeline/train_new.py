@@ -189,8 +189,8 @@ print(f"Best R² score: {grid_search_extratrees.best_score_:.4f}")
 # -----------------------------------------------------------------------------
 
 rf_best_params_ = {'max_depth': None, 'max_features': 'sqrt', 'min_samples_leaf': 1, 'min_samples_split': 2, 'n_estimators': 200}
-xgb_best_params_ = {'colsample_bytree': 0.7, 'learning_rate': 0.1, 'max_depth': 20, 'n_estimators': 100, 'subsample': 1}
-extratrees_best_params_ = {'bootstrap': False, 'max_depth': None, 'max_features': 'sqrt', 'min_samples_leaf': 1, 'min_samples_split': 2, 'n_estimators': 200}
+xgb_best_params_ = {'colsample_bytree': 0.5, 'learning_rate': 0.1, 'max_depth': 20, 'n_estimators': 100, 'subsample': 1}
+extratrees_best_params_ = {'bootstrap': False, 'max_depth': None, 'max_features': 'log2', 'min_samples_leaf': 1, 'min_samples_split': 2, 'n_estimators': 200}
 
 model = StackingRegressor(
     estimators=[

@@ -66,7 +66,7 @@ for col in X.columns:
 # -----------------------------------------------------------------------------
 
 from sklearn.feature_selection import RFECV
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor
 
 rfe_fs = RFECV(estimator=RandomForestRegressor(oob_score=True, random_state=SEED), 
                cv=KFold(n_splits=5, shuffle=True, random_state=SEED), 
@@ -76,6 +76,9 @@ X_selected = rfe_fs.fit_transform(X, y)
 print(f"{rfe_fs.ranking_=}")
 try:
     print(f"{rfe_fs.cv_results_.keys()=}")
+    idxmx = np.argmax(rfe_fs.cv_results_['mean_test_score'])
+    print(f" -> {rfe_fs.cv_results_['mean_test_score'][idxmx]} +/- {rfe_fs.cv_results_['std_test_score'][idxmx]}")
+    print(f"Best number of features: {rfe_fs.cv_results_['n_features'][idxmx]}")
 
     plt.figure()
     # plt.plot(rfe_fs.cv_results_['n_features'][2:], rfe_fs.cv_results_['mean_test_score'][2:], color='blue')
@@ -91,8 +94,7 @@ try:
     plt.title('RFECV - Number of Features vs. Cross-Validation Score')
     plt.show()
 
-    idxmx = np.argmax(rfe_fs.cv_results_['mean_test_score'])
-    print(f"Best number of features: {rfe_fs.cv_results_['n_features'][idxmx]} -> {rfe_fs.cv_results_['mean_test_score'][idxmx]} +/- {rfe_fs.cv_results_['std_test_score'][idxmx]}")
+    
 except:
     pass
 
