@@ -12,3 +12,5 @@ pipeline/data/other/
 baseline/BUILDING_*
 
 lab.py
+
+catboost_info/**

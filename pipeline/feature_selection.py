@@ -14,7 +14,11 @@ train_new = pd.read_parquet('./data/processed/train/train_data.parquet')
 intersect_columns = train_old.columns.intersection(train_new.columns)
 print(f"{train_old[intersect_columns].equals(train_new[intersect_columns])=}")
 
-feature_list = yaml.safe_load(open('./data/columns.yml', 'r'))['features']
+feature_list = [c for c in yaml.safe_load(open('./data/columns.yml', 'r'))['features'] if c not in [
+    "bearing_bronx", "bearing_manhattan", 
+    "wind_influence_15:00:00_bronx", "wind_influence_15:05:00_bronx", "wind_influence_15:10:00_bronx", "wind_influence_15:15:00_bronx", "wind_influence_15:20:00_bronx", "wind_influence_15:25:00_bronx", "wind_influence_15:30:00_bronx", "wind_influence_15:35:00_bronx", "wind_influence_15:40:00_bronx", "wind_influence_15:45:00_bronx", "wind_influence_15:50:00_bronx", "wind_influence_15:55:00_bronx", "wind_influence_16:00:00_bronx", "wind_influence_15:00:00_manhattan", "wind_influence_15:05:00_manhattan", "wind_influence_15:10:00_manhattan", "wind_influence_15:15:00_manhattan", "wind_influence_15:20:00_manhattan", "wind_influence_15:25:00_manhattan", "wind_influence_15:30:00_manhattan", "wind_influence_15:35:00_manhattan", "wind_influence_15:40:00_manhattan", "wind_influence_15:45:00_manhattan", "wind_influence_15:50:00_manhattan", "wind_influence_15:55:00_manhattan", "wind_influence_16:00:00_manhattan", 
+    "pct_change_wind_influence_15:05:00_bronx", "pct_change_wind_influence_15:10:00_bronx", "pct_change_wind_influence_15:15:00_bronx", "pct_change_wind_influence_15:20:00_bronx", "pct_change_wind_influence_15:25:00_bronx", "pct_change_wind_influence_15:30:00_bronx", "pct_change_wind_influence_15:35:00_bronx", "pct_change_wind_influence_15:40:00_bronx", "pct_change_wind_influence_15:45:00_bronx", "pct_change_wind_influence_15:50:00_bronx", "pct_change_wind_influence_15:55:00_bronx", "pct_change_wind_influence_16:00:00_bronx", "pct_change_wind_influence_15:05:00_manhattan", "pct_change_wind_influence_15:10:00_manhattan", "pct_change_wind_influence_15:15:00_manhattan", "pct_change_wind_influence_15:20:00_manhattan", "pct_change_wind_influence_15:25:00_manhattan", "pct_change_wind_influence_15:30:00_manhattan", "pct_change_wind_influence_15:35:00_manhattan", "pct_change_wind_influence_15:40:00_manhattan", "pct_change_wind_influence_15:45:00_manhattan", "pct_change_wind_influence_15:50:00_manhattan", "pct_change_wind_influence_15:55:00_manhattan", "pct_change_wind_influence_16:00:00_manhattan"
+]]
 
 X = train_new.drop(columns=['Longitude', 'Latitude', 'datetime', TARGET])[feature_list]
 y = train_new[TARGET]
@@ -54,6 +58,8 @@ print(f"{to_drop=}")
 
 X = X.drop(columns=to_drop)
 print(f"After collinearity removal -> {len(X.columns)=}")
+for col in X.columns:
+    print(f"- {col}")
 
 # -----------------------------------------------------------------------------
 # RFECV with RandomForest
@@ -84,6 +90,9 @@ try:
     plt.ylabel('Cross-Validation Score (R2)')
     plt.title('RFECV - Number of Features vs. Cross-Validation Score')
     plt.show()
+
+    idxmx = np.argmax(rfe_fs.cv_results_['mean_test_score'])
+    print(f"Best number of features: {rfe_fs.cv_results_['n_features'][idxmx]} -> {rfe_fs.cv_results_['mean_test_score'][idxmx]} +/- {rfe_fs.cv_results_['std_test_score'][idxmx]}")
 except:
     pass
 
@@ -93,9 +102,17 @@ print(f"After RFECV Feature Selection-> {X_selected.shape[1]=}")
 print(X_selected.var(axis=0))
 
 display(X_rfe.head())
+print(X_rfe.columns)
 
 X_rfe.to_parquet('./data/processed/train/X_selected.parquet')
 pd.DataFrame(y).to_parquet('./data/processed/train/y_selected.parquet')
+print(f"Saved selected features to parquet files")
+
+# -----------------------------------------------------------------------------
+# Check columns
+# -----------------------------------------------------------------------------
+
+X_selected = pd.read_parquet('./data/processed/train/X_selected.parquet')
 
 
 # # -----------------------------------------------------------------------------
