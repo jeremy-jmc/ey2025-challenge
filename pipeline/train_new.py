@@ -70,14 +70,30 @@ models = {
     # )
 }
 
+results = []
 for name, model in models.items():
     print(f"{name=}")
     scores = cross_val_score(model, X_train, y_train, cv=10)
-    print(f"{name}: {scores.mean():.4f} ± {scores.std():.4f}")
+    mean_score = scores.mean()
+    std_score = scores.std()
+    print(f"{name}: {mean_score:.4f} ± {std_score:.4f}")
 
     model.fit(X_train, y_train)
     y_pred = model.predict(X_test)
-    print(f"{name} test accuracy: {r2_score(y_test, y_pred):.4f}")
+    test_accuracy = r2_score(y_test, y_pred)
+    print(f"{name} test accuracy: {test_accuracy:.4f}")
+
+    results.append({
+        'Model': name,
+        'Mean CV': mean_score,
+        'Std CV': std_score,
+        'Test Accuracy': test_accuracy
+    })
+
+results_df = pd.DataFrame(results)
+results_df = results_df.sort_values(by=['Test Accuracy', 'Mean CV'], ascending=False)
+
+display(results_df)
 
 """
 Random Forest: 0.9572 ± 0.0020

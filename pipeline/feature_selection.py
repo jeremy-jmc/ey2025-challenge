@@ -69,7 +69,7 @@ from sklearn.feature_selection import RFECV
 from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor
 
 rfe_fs = RFECV(estimator=ExtraTreesRegressor(random_state=SEED),    # RandomForestRegressor(oob_score=True, random_state=SEED), 
-               cv=KFold(n_splits=5, shuffle=True, random_state=SEED), 
+               cv=KFold(n_splits=10, shuffle=True, random_state=SEED), 
                scoring='r2', step=2, n_jobs=-1, verbose=1)
 X_selected = rfe_fs.fit_transform(X, y)
 
@@ -100,12 +100,11 @@ except:
 
 X_rfe = X.loc[:, rfe_fs.support_]
 
-print(f"After RFECV Feature Selection-> {X_selected.shape[1]=}")
 print(X_selected.var(axis=0))
-
-display(X_rfe.head())
+# display(X_rfe.head())
 print(X_rfe.columns)
 
+print(f"After RFECV Feature Selection-> {X_selected.shape[1]=}")
 X_rfe.to_parquet('./data/processed/train/X_selected.parquet')
 pd.DataFrame(y).to_parquet('./data/processed/train/y_selected.parquet')
 print(f"Saved selected features to parquet files")
