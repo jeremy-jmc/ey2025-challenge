@@ -45,27 +45,27 @@ models = {
     # 'Lasso Regression': Lasso(),
     # 'Elastic Net': ElasticNet(),
 
-    'Random Forest': RandomForestRegressor(),
-    'Gradient Boosting': GradientBoostingRegressor(),
-    'XGBoost': XGBRegressor(),
-    'LightGBM': LGBMRegressor(verbosity=0),
-    'CatBoost': CatBoostRegressor(verbose=0),
+    'Random Forest': RandomForestRegressor(random_state=SEED),
+    'Gradient Boosting': GradientBoostingRegressor(random_state=SEED),
+    'XGBoost': XGBRegressor(random_state=SEED),
+    'LightGBM': LGBMRegressor(verbosity=0, random_state=SEED),
+    'CatBoost': CatBoostRegressor(verbose=0, random_state=SEED),
 
-    'HistGradientBoosting': HistGradientBoostingRegressor(),
-    'Extra Trees': ExtraTreesRegressor(),
-    'AdaBoost': AdaBoostRegressor(),
-    'Bagging': BaggingRegressor(),
-    'Decision Tree': DecisionTreeRegressor(),
+    'HistGradientBoosting': HistGradientBoostingRegressor(random_state=SEED),
+    'Extra Trees': ExtraTreesRegressor(random_state=SEED),
+    'AdaBoost': AdaBoostRegressor(random_state=SEED),
+    'Bagging': BaggingRegressor(random_state=SEED),
+    'Decision Tree': DecisionTreeRegressor(random_state=SEED),
 
     # 'Stacking': StackingRegressor(
     #     estimators=[
-    #         ('et', ExtraTreesRegressor(n_jobs=-2)),
-    #         # ('rf', RandomForestRegressor(n_jobs=-2)), 
-    #         # ('bg', BaggingRegressor(n_jobs=-2)),
-    #         ('xgb', XGBRegressor(n_jobs=-2)),
-    #         # ('ctb', CatBoostRegressor(verbose=0))
+    #         ('et', ExtraTreesRegressor(n_jobs=-2, random_state=SEED)),
+    #         # ('rf', RandomForestRegressor(n_jobs=-2, random_state=SEED)), 
+    #         # ('bg', BaggingRegressor(n_jobs=-2, random_state=SEED)),
+    #         ('xgb', XGBRegressor(n_jobs=-2, random_state=SEED)),
+    #         # ('ctb', CatBoostRegressor(verbose=0, random_state=SEED))
     #     ],
-    #     final_estimator=ElasticNetCV(cv=10, n_jobs=-2),
+    #     final_estimator=ElasticNetCV(cv=10, n_jobs=-2, random_state=SEED),
     #     verbose=2
     # )
 }
@@ -194,12 +194,12 @@ extratrees_best_params_ = {'bootstrap': False, 'max_depth': None, 'max_features'
 
 model = StackingRegressor(
     estimators=[
-        # ('rf', RandomForestRegressor(**rf_best_params_, n_jobs=-2)), 
-        ('et', ExtraTreesRegressor(**extratrees_best_params_, n_jobs=-2)),
-        ('xgb', XGBRegressor(**xgb_best_params_, n_jobs=-2)),
-        # ('ctb', CatBoostRegressor(verbose=0))
+        # ('rf', RandomForestRegressor(**rf_best_params_, n_jobs=-2, random_state=SEED)), 
+        ('et', ExtraTreesRegressor(**extratrees_best_params_, n_jobs=-2, random_state=SEED)),
+        ('xgb', XGBRegressor(**xgb_best_params_, n_jobs=-2, random_state=SEED)),
+        # ('ctb', CatBoostRegressor(verbose=0, random_state=SEED))
     ],
-    final_estimator=ElasticNetCV(cv=10, n_jobs=-2),
+    final_estimator=ElasticNetCV(cv=10, n_jobs=-2, random_state=SEED),
     verbose=2
 )
 model.fit(X_train, y_train)
