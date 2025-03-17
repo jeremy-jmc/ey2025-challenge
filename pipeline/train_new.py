@@ -95,111 +95,6 @@ results_df = results_df.sort_values(by=['Test Accuracy', 'Mean CV'], ascending=F
 
 display(results_df)
 
-"""
-Random Forest: 0.9572 ± 0.0020
-Random Forest test accuracy: 0.9711
-
-Gradient Boosting: 0.7899 ± 0.0053
-Gradient Boosting test accuracy: 0.7728
-
-XGBoost: 0.9468 ± 0.0010
-XGBoost test accuracy: 0.9590
-
-LightGBM: 0.9288 ± 0.0015
-LightGBM test accuracy: 0.9404
-
-CatBoost: 0.9442 ± 0.0018
-CatBoost test accuracy: 0.9596
-
-
-Stacking: 0.9659 ± 0.0029
-Stacking test accuracy: 0.9742
-"""
-
-# -----------------------------------------------------------------------------
-# Hyperparameter tuning Random Forest
-# -----------------------------------------------------------------------------
-
-rf_param_grid = {
-    'n_estimators': [50, 100, 150, 200],
-    'max_depth': [None, 8, 10, 20],
-    'min_samples_split': [2, 5, 10],
-    'min_samples_leaf': [1, 2, 4],
-    'max_features': ['auto', 'sqrt'],
-    # 'bootstrap': [True, False]
-}
-
-grid_search_rf = GridSearchCV(
-    estimator=RandomForestRegressor(oob_score=True, random_state=SEED),
-    param_grid=rf_param_grid,
-    cv=10,
-    scoring='r2',  # Optimize for R² score
-    n_jobs=-1,  # Use all available CPU cores
-    verbose=2  # Show progress
-)
-grid_search_rf.fit(X_train, y_train)
-
-print(f"Best parameters: {grid_search_rf.best_params_}")
-print(f"Best R² score: {grid_search_rf.best_score_:.4f}")
-
-rf_model = grid_search_rf.best_estimator_
-
-# -----------------------------------------------------------------------------
-# Hyperparameter tuning XGBoost
-# -----------------------------------------------------------------------------
-
-xgb_param_grid = {
-    'n_estimators': [50, 100, 150, 200],
-    'max_depth': [None, 5, 7, 9, 20],
-    'learning_rate': [0.01, 0.1, 0.3],
-    'subsample': [0.5, 0.7, 1],
-    'colsample_bytree': [0.5, 0.7, 1],
-    # 'gamma': [0, 0.1, 0.2],
-}
-
-grid_search_xgb = GridSearchCV(
-    estimator=XGBRegressor(random_state=SEED),
-    param_grid=xgb_param_grid,
-    cv=10,
-    scoring='r2',
-    n_jobs=-1,
-    verbose=2
-)
-grid_search_xgb.fit(X_train, y_train)
-
-print(f"Best parameters: {grid_search_xgb.best_params_}")
-print(f"Best R² score: {grid_search_xgb.best_score_:.4f}")
-
-xgb_model = grid_search_xgb.best_estimator_
-
-
-# -----------------------------------------------------------------------------
-# Hyperparameter tuning ExtraTrees
-# -----------------------------------------------------------------------------
-
-extratrees_param_grid = {
-    'n_estimators': [50, 100, 150, 200],
-    'max_depth': [None, 8, 10, 20],
-    'min_samples_split': [2, 5, 10],
-    'min_samples_leaf': [1, 2, 4],
-    'bootstrap': [True, False],
-    'max_features': ['log2', 'sqrt', None],
-    # 'bootstrap': [True, False]
-}
-
-grid_search_extratrees = GridSearchCV(
-    estimator=ExtraTreesRegressor(random_state=SEED),
-    param_grid=extratrees_param_grid,
-    cv=10,
-    scoring='r2',
-    n_jobs=-1,
-    verbose=2
-)
-grid_search_extratrees.fit(X_train, y_train)
-
-print(f"Best parameters: {grid_search_extratrees.best_params_}")
-print(f"Best R² score: {grid_search_extratrees.best_score_:.4f}")
-
 # -----------------------------------------------------------------------------
 # Stacking
 # -----------------------------------------------------------------------------
@@ -207,6 +102,7 @@ print(f"Best R² score: {grid_search_extratrees.best_score_:.4f}")
 rf_best_params_ = {'max_depth': None, 'max_features': 'sqrt', 'min_samples_leaf': 1, 'min_samples_split': 2, 'n_estimators': 200}
 xgb_best_params_ = {'colsample_bytree': 0.5, 'learning_rate': 0.1, 'max_depth': 20, 'n_estimators': 200, 'subsample': 0.7}
 extratrees_best_params_ = {'bootstrap': False, 'max_depth': None, 'max_features': None, 'min_samples_leaf': 1, 'min_samples_split': 2, 'n_estimators': 200}
+elastic_net_best_params_ =  {'eps': 0.001, 'l1_ratio': 0.1, 'max_iter': 1000, 'n_alphas': 100}
 
 model = StackingRegressor(
     estimators=[
@@ -219,6 +115,12 @@ model = StackingRegressor(
     verbose=2
 )
 model.fit(X_train, y_train)
+
+with open('./models/extratrees_model.pkl', 'wb') as extratrees_file:
+    pickle.dump(model.estimators_[0], extratrees_file)
+
+with open('./models/xgb_model.pkl', 'wb') as xgb_file:
+    pickle.dump(model.estimators_[1], xgb_file)
 
 # -----------------------------------------------------------------------------
 # Model Generalization Capability Evaluation
