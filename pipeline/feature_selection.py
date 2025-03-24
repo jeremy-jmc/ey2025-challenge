@@ -93,8 +93,6 @@ try:
     plt.ylabel('Cross-Validation Score (R2)')
     plt.title('RFECV - Number of Features vs. Cross-Validation Score')
     plt.show()
-
-    
 except:
     pass
 
@@ -108,55 +106,4 @@ print(f"After RFECV Feature Selection-> {X_selected.shape[1]=}")
 X_rfe.to_parquet('./data/processed/train/X_selected.parquet')
 pd.DataFrame(y).to_parquet('./data/processed/train/y_selected.parquet')
 print(f"Saved selected features to parquet files")
-
-# -----------------------------------------------------------------------------
-# Check columns
-# -----------------------------------------------------------------------------
-
-X_selected = pd.read_parquet('./data/processed/train/X_selected.parquet')
-
-
-# # -----------------------------------------------------------------------------
-# # Drop columns with 0 variance
-# # -----------------------------------------------------------------------------
-
-# from sklearn.feature_selection import VarianceThreshold
-
-# selector = VarianceThreshold(0.2)
-# selector.fit(X_selected)
-
-# print(len(X_selected.loc[:, selector.get_support()].columns))
-# # X = X.loc[:, selector.get_support()]
-
-
-# -----------------------------------------------------------------------------
-# Variance Threshold
-# -----------------------------------------------------------------------------
-
-# !pip install statsmodels
-from statsmodels.stats.outliers_influence import variance_inflation_factor
-
-VIF             = pd.DataFrame()
-VIF['feature']  = X_rfe.columns
-VIF['VIF']      = [variance_inflation_factor(X_rfe.values, i) 
-                   for i in tqdm(range(X_rfe.shape[1]), total=X_rfe.shape[1], desc='Calculating VIF')]
-
-display(VIF.sort_values('VIF', ascending=False))
-
-
-# -----------------------------------------------------------------------------
-# Lasso Feature Selection
-# -----------------------------------------------------------------------------
-
-from sklearn.feature_selection import SelectFromModel
-from sklearn.linear_model import LassoCV
-
-selector = SelectFromModel(RandomForestRegressor().fit(X_rfe, y), prefit=True)
-selector.fit(X_rfe, y)
-
-print(selector.estimator_.score(X_rfe, y))
-
-selected_features = X_rfe.columns[selector.get_support()]
-
-print(f"{selected_features=}")
 

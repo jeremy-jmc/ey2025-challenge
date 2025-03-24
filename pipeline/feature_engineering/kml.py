@@ -98,6 +98,8 @@ bv = bv[['CONSTRUCTION_YEAR', 'FEATURE_CODE', 'GROUND_ELEVATION', 'HEIGHT_ROOF',
 
 bv = bv.loc[bv['CONSTRUCTION_YEAR'] < 2021].reset_index(drop=True)     # ! Check consistency of results
 
+bv['height_per_squared_meter'] = bv['HEIGHT_ROOF'] / bv['area']
+
 # ? Length variable is the perimeter?
 # TODO: Filter all polygons/geometries than intersects with any of the bld_footprint geometries
 print(f"{bv.shape=}")
@@ -134,8 +136,9 @@ for radius_meter in tqdm(radius_list, total=len(radius_list), desc='Radius Areas
     geodataset[f'buffer_{radius_meter}m'] = (
         geodataset.apply(lambda x: buffer_meters(x, radius_meter), axis=1)
         .set_crs(3395)
-        .to_crs(epsg=4326)
     )
+    geodataset[f'buffer_{radius_meter}m_area'] = geodataset[f'buffer_{radius_meter}m'].area
+    geodataset[f'buffer_{radius_meter}m'] = geodataset[f'buffer_{radius_meter}m'].to_crs(epsg=4326)
 
     # * EY .kml file Building Footprints
     intersecting_squares = gpd.sjoin(bld_footprint, 
@@ -153,7 +156,7 @@ for radius_meter in tqdm(radius_list, total=len(radius_list), desc='Radius Areas
     geodataset[f"kml_count_buildings_{radius_meter}m"] = geodataset.index.map(squares_gb.count()).fillna(0)
 
     # * NYC Buildings
-    intersecting_buildings = gpd.sjoin(bv[['Area', 'Length', 'geometry', 'GROUND_ELEVATION', 'HEIGHT_ROOF']], 
+    intersecting_buildings = gpd.sjoin(bv[['Area', 'Length', 'geometry', 'GROUND_ELEVATION', 'HEIGHT_ROOF', 'height_per_squared_meter']], 
         gpd.GeoDataFrame(geometry=geodataset[f'buffer_{radius_meter}m'], crs=bv.crs), 
         predicate="intersects",     # within
         how='inner'
@@ -162,20 +165,42 @@ for radius_meter in tqdm(radius_list, total=len(radius_list), desc='Radius Areas
     
     grnd_elev = intersecting_buildings.groupby('index_right')['ground_elevation']
     height_roof = intersecting_buildings.groupby('index_right')['height_roof']
+    height_per_squared_meter = intersecting_buildings.groupby('index_right')['height_per_squared_meter']
 
     geodataset[f"kml_max_grnd_elev_{radius_meter}m"] = geodataset.index.map(grnd_elev.max()).fillna(0)
     geodataset[f"kml_min_grnd_elev_{radius_meter}m"] = geodataset.index.map(grnd_elev.min()).fillna(0)
     geodataset[f"kml_mean_grnd_elev_{radius_meter}m"] = geodataset.index.map(grnd_elev.mean()).fillna(0)
     geodataset[f"kml_std_grnd_elev_{radius_meter}m"] = geodataset.index.map(grnd_elev.std()).fillna(0)
-
+    # geodataset[f"kml_range_grnd_elev_{radius_meter}m"] = geodataset[f"kml_max_grnd_elev_{radius_meter}m"] - geodataset[f"kml_min_grnd_elev_{radius_meter}m"]
+    
     geodataset[f"kml_max_height_roof_{radius_meter}m"] = geodataset.index.map(height_roof.max()).fillna(0)
     geodataset[f"kml_min_height_roof_{radius_meter}m"] = geodataset.index.map(height_roof.min()).fillna(0)
     geodataset[f"kml_mean_height_roof_{radius_meter}m"] = geodataset.index.map(height_roof.mean()).fillna(0)
     geodataset[f"kml_std_height_roof_{radius_meter}m"] = geodataset.index.map(height_roof.std()).fillna(0)
+    geodataset[f"kml_height_roof_variability_{radius_meter}m"] = (
+        geodataset[f"kml_std_height_roof_{radius_meter}m"] / geodataset[f"kml_mean_height_roof_{radius_meter}m"]
+    ).fillna(0)
+
+    geodataset[f"kml_max_height_per_squared_meter_{radius_meter}m"] = geodataset.index.map(height_per_squared_meter.max()).fillna(0)
+    geodataset[f"kml_min_height_per_squared_meter_{radius_meter}m"] = geodataset.index.map(height_per_squared_meter.min()).fillna(0)
+    geodataset[f"kml_mean_height_per_squared_meter_{radius_meter}m"] = geodataset.index.map(height_per_squared_meter.mean()).fillna(0)
+    geodataset[f"kml_std_height_per_squared_meter_{radius_meter}m"] = geodataset.index.map(height_per_squared_meter.std()).fillna(0)
+
     
-    # TODO: Linear combination of area and height of buildings inside the buffer with `bv` variable
+    # geodataset[f"kml_weighted_area_by_height_{radius_meter}m"] = (
+    #     geodataset.index.map(
+    #         intersecting_buildings.groupby('index_right').apply(lambda x: (x['height_roof'] * x['area']).sum() / x['area'].sum())
+    #     ).fillna(0)
+    # )
+
+    geodataset[f"kml_total_building_volume_{radius_meter}m"] = (
+        geodataset.index.map(
+            intersecting_buildings.groupby('index_right').apply(lambda x: (x['height_roof'] * x['area']).sum())
+        ).fillna(0)
+    )
+    # geodataset[f"kml_height_density_{radius_meter}m"] = geodataset[f"kml_total_building_volume_{radius_meter}m"] / geodataset[f'buffer_{radius_meter}m_area']
     
-    geodataset = geodataset.drop(columns=[f'buffer_{radius_meter}m'])
+    geodataset = geodataset.drop(columns=[f'buffer_{radius_meter}m', f'buffer_{radius_meter}m_area'])
     # display(geodataset)
 
 geodataset = geodataset.to_crs(epsg=4326).drop(columns=['longitude', 'latitude', 'geometry'])

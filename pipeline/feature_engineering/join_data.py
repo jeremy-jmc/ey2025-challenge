@@ -25,10 +25,12 @@ sentinel_features_df = pd.read_parquet(f'../data/processed/{MODE}/sentinel2_foca
 print(f"{sentinel_features_df.columns=}")
 sentinel_features_bands_df = pd.read_parquet(f'../data/processed/{MODE}/sentinel2_focal_buffers_bands.parquet')
 print(f"{sentinel_features_bands_df.columns=}")
+# sentinel_pct_change_df = pd.read_parquet(f'../data/processed/{MODE}/sentinel2_focal_buffers_pct_change_100m.parquet')
+# print(f"{sentinel_pct_change_df.columns=}")
 landsat_features_df = pd.read_parquet(f'../data/processed/{MODE}/landsat.parquet')
 print(f"{landsat_features_df.columns=}")
-ny_mesonet_features_df = pd.read_parquet(f'../data/processed/{MODE}/ny_mesonet_features.parquet')
-print(f"{ny_mesonet_features_df.columns=}")
+# ny_mesonet_features_df = pd.read_parquet(f'../data/processed/{MODE}/ny_mesonet_features.parquet')
+# print(f"{ny_mesonet_features_df.columns=}")
 bldng_footprint = pd.read_parquet(f'../data/processed/{MODE}/building_footprint.parquet')
 print(f"{bldng_footprint.columns=}")
 
@@ -42,10 +44,13 @@ print(f"{bldng_footprint.columns=}")
 # Combining ground data, focal radius data and satellite bands data into a single dataset.
 uhi_data = combine_two_datasets(ground_df,sentinel_bands_df)
 uhi_data = combine_two_datasets(uhi_data, sentinel_features_df)
+# uhi_data = combine_two_datasets(uhi_data, sentinel_pct_change_df)
 uhi_data = combine_two_datasets(uhi_data, landsat_features_df)
 uhi_data = combine_two_datasets(uhi_data, sentinel_features_bands_df)
-uhi_data = combine_two_datasets(uhi_data, ny_mesonet_features_df)
+# uhi_data = combine_two_datasets(uhi_data, ny_mesonet_features_df)
 uhi_data = combine_two_datasets(uhi_data, bldng_footprint)
+
+print(f"{uhi_data.columns=}")
 
 # if MODE == 'train':
 #     uhi_data = combine_two_datasets(uhi_data, cluster_df)
