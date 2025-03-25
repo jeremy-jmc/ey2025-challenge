@@ -14,3 +14,4 @@ baseline/BUILDING_*
 lab.py
 
 catboost_info/**
+*_compare.parquet
