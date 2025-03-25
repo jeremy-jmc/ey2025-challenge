@@ -8,11 +8,7 @@ np.set_printoptions(suppress=True)
 
 TARGET = 'UHI Index'
 
-train_old = pd.read_parquet('./data/train_data.parquet')
 train_new = pd.read_parquet('./data/processed/train/train_data.parquet')
-
-intersect_columns = train_old.columns.intersection(train_new.columns)
-print(f"{train_old[intersect_columns].equals(train_new[intersect_columns])=}")
 
 feature_list = [c for c in yaml.safe_load(open('./data/columns.yml', 'r'))['features'] if c not in [
     "bearing_bronx", "bearing_manhattan", 
@@ -22,9 +18,6 @@ feature_list = [c for c in yaml.safe_load(open('./data/columns.yml', 'r'))['feat
 
 X = train_new.drop(columns=['Longitude', 'Latitude', 'datetime', TARGET])[feature_list]
 y = train_new[TARGET]
-
-# X = train_old.drop(columns=['Longitude', 'Latitude', 'datetime', TARGET])
-# y = train_old[TARGET]
 
 print(f"Original column length -> {len(X.columns)=}")
 

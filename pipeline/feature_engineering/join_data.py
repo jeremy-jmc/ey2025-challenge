@@ -29,8 +29,8 @@ print(f"{sentinel_features_bands_df.columns=}")
 # print(f"{sentinel_pct_change_df.columns=}")
 landsat_features_df = pd.read_parquet(f'../data/processed/{MODE}/landsat.parquet')
 print(f"{landsat_features_df.columns=}")
-# ny_mesonet_features_df = pd.read_parquet(f'../data/processed/{MODE}/ny_mesonet_features.parquet')
-# print(f"{ny_mesonet_features_df.columns=}")
+ny_mesonet_features_df = pd.read_parquet(f'../data/processed/{MODE}/ny_mesonet_features.parquet')
+print(f"{ny_mesonet_features_df.columns=}")
 bldng_footprint = pd.read_parquet(f'../data/processed/{MODE}/building_footprint.parquet')
 print(f"{bldng_footprint.columns=}")
 
@@ -47,7 +47,7 @@ uhi_data = combine_two_datasets(uhi_data, sentinel_features_df)
 # uhi_data = combine_two_datasets(uhi_data, sentinel_pct_change_df)
 uhi_data = combine_two_datasets(uhi_data, landsat_features_df)
 uhi_data = combine_two_datasets(uhi_data, sentinel_features_bands_df)
-# uhi_data = combine_two_datasets(uhi_data, ny_mesonet_features_df)
+uhi_data = combine_two_datasets(uhi_data, ny_mesonet_features_df)
 uhi_data = combine_two_datasets(uhi_data, bldng_footprint)
 
 print(f"{uhi_data.columns=}")
@@ -67,13 +67,6 @@ columns_to_check = \
 for col in columns_to_check:
     # Check if the value is a numpy array and has more than one dimension
     uhi_data[col] = uhi_data[col].apply(lambda x: tuple(x) if isinstance(x, np.ndarray) and x.ndim > 0 else x)
-
-# # ! HANDCRAFTED: Ensure correctness
-# old_df = pd.read_parquet(f'../data/{MODE}_data.parquet')
-# new_columns = list(set(old_df.columns).difference(uhi_data.columns))
-# print(f"{new_columns=}")
-
-# uhi_data = combine_two_datasets(uhi_data, old_df[new_columns])
 
 # Now remove duplicates
 if MODE == 'train':
@@ -95,10 +88,10 @@ else:
 
 print(f"{uhi_data.shape=}")
 
-with open('../data/columns.json', mode='w') as f:
-    json.dump({'features': [c for c in uhi_data.columns if c not in ['Longitude', 'Latitude', 'UHI Index', 'datetime']]}, f, indent=4)
+# with open('../data/columns.json', mode='w') as f:
+#     json.dump({'features': [c for c in uhi_data.columns if c not in ['Longitude', 'Latitude', 'UHI Index', 'datetime']]}, f, indent=4)
 
-print(f"{list(uhi_data.columns)=}")
+# print(f"{list(uhi_data.columns)=}")
 
 import yaml
 with open('../data/columns.yml', mode='w') as f:

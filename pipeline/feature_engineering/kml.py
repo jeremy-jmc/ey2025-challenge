@@ -65,7 +65,7 @@ bld_footprint['area'] = bld_footprint['geometry'].area
 
 bld_footprint = bld_footprint.to_crs(epsg=4326)
 
-bld_footprint.to_file('../data/other/bf.json', driver='GeoJSON')
+# bld_footprint.to_file('../data/other/bf.json', driver='GeoJSON')
 display(bld_footprint)
 
 # Get bbox from all GeoDataFrame
@@ -106,7 +106,7 @@ print(f"{bv.shape=}")
 bv = bv[bv['geometry'].apply(lambda x: bld_footprint['geometry'].intersects(x).any())].reset_index(drop=True)
 print(f"{bv.shape=}")
 
-bv.to_file('../data/other/bv.json', driver='GeoJSON')
+# bv.to_file('../data/other/bv.json', driver='GeoJSON')
 
 # -----------------------------------------------------------------------------
 # * Point and Radius/Buffer Queries
@@ -177,9 +177,9 @@ for radius_meter in tqdm(radius_list, total=len(radius_list), desc='Radius Areas
     geodataset[f"kml_min_height_roof_{radius_meter}m"] = geodataset.index.map(height_roof.min()).fillna(0)
     geodataset[f"kml_mean_height_roof_{radius_meter}m"] = geodataset.index.map(height_roof.mean()).fillna(0)
     geodataset[f"kml_std_height_roof_{radius_meter}m"] = geodataset.index.map(height_roof.std()).fillna(0)
-    geodataset[f"kml_height_roof_variability_{radius_meter}m"] = (
-        geodataset[f"kml_std_height_roof_{radius_meter}m"] / geodataset[f"kml_mean_height_roof_{radius_meter}m"]
-    ).fillna(0)
+    # geodataset[f"kml_height_roof_variability_{radius_meter}m"] = (
+    #     geodataset[f"kml_std_height_roof_{radius_meter}m"] / geodataset[f"kml_mean_height_roof_{radius_meter}m"]
+    # ).fillna(0)
 
     geodataset[f"kml_max_height_per_squared_meter_{radius_meter}m"] = geodataset.index.map(height_per_squared_meter.max()).fillna(0)
     geodataset[f"kml_min_height_per_squared_meter_{radius_meter}m"] = geodataset.index.map(height_per_squared_meter.min()).fillna(0)
