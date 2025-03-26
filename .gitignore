@@ -1,0 +1,17 @@
+
+
+*.zip
+*.geojson
+
+__pycache__/
+
+pipeline/data/other/
+
+*.geojson
+
+baseline/BUILDING_*
+
+lab.py
+
+catboost_info/**
+*_compare.parquet
