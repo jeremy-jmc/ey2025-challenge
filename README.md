@@ -7,3 +7,5 @@ For access to the entire code and `.git` history, please contact:
 - jeremy.matos@utec.edu.pe  
 - valeria.espinoza@utec.edu.pe
 
+This project uses Python 3.10.12.
+
