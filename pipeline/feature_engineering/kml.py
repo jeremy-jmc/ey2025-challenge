@@ -18,29 +18,6 @@ kml_path = '../../baseline/Building_Footprint.kml'
 
 MODE = 'submission'  # 'submission' 'train'
 
-# # -----------------------------------------------------------------------------
-# # Read KML from base
-# # -----------------------------------------------------------------------------
-# from osgeo import gdal, ogr
-
-# ds = ogr.Open(kml_path)
-# layer = ds.GetLayer()
-
-# features = []
-# for feature in layer:
-#     attributes = feature.items()
-#     geometry = feature.geometry().Clone()
-#     attributes["geometry"] = geometry.ExportToWkt()  # Convert to Well-Known Text (WKT)
-#     features.append(attributes)
-
-# gdf = (
-#     gpd.GeoDataFrame(features, geometry=gpd.GeoSeries.from_wkt([f["geometry"] for f in features]), crs="EPSG:4326")
-#     .dropna(axis=1, how='all')
-# )
-# print(f"{gdf.shape=}")
-# display(gdf)
-
-
 # -----------------------------------------------------------------------------
 # * Read KML with GeoPandas
 # -----------------------------------------------------------------------------
