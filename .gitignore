@@ -1,8 +1,0 @@
-
-
-*.zip
-*.geojson
-
-__pycache__/
-
-pipeline/data/processed/

@@ -1,1 +1,0 @@
-# ey2025-challenge
